@@ -1,33 +1,328 @@
-# Quotas
+# quotas.md
 
-## When To Use This Sheet
+# Filesystem Quotas Administration Commands Cheat Sheet
 
-Use this cheat sheet during daily administration and timed lab work. It is intentionally compact, but every command should still be read before it is executed. Replace device names, users, paths, ports, and service names with values from your system. For commands that change state, record the original state first so that rollback is possible.
+## Overview
 
-## Commands
+This document provides a practical enterprise Linux administration cheat sheet for configuring filesystem quotas, user and group storage limits, quota reporting, and troubleshooting operations on Red Hat Enterprise Linux (RHEL) 9.6 systems.
 
-| Command | Typical use |
+The commands and workflows included are commonly used during enterprise storage governance, multi-user server administration, shared filesystem management, compliance validation, and operational maintenance activities.
+
+This reference is designed for fast operational lookup during production Linux administration tasks.
+
+---
+
+## Environment Information
+
+| Component | Details |
 |---|---|
-| `id alice` | Inspect, configure, or validate the users area in a repeatable way. |
-| `getent passwd alice` | Inspect, configure, or validate the users area in a repeatable way. |
-| `useradd -m alice` | Inspect, configure, or validate the users area in a repeatable way. |
-| `passwd -S alice` | Inspect, configure, or validate the users area in a repeatable way. |
-| `usermod -aG wheel alice` | Inspect, configure, or validate the users area in a repeatable way. |
+| Operating System | RHEL 9.6 |
+| Hostname | rhel01.lab.local |
+| Filesystem Type | XFS / EXT4 |
+| Quota Management | userquota / groupquota |
+| SELinux Mode | Enforcing |
+| User Context | root / sudo administrator |
+| Lab Platform | VMware Enterprise Lab |
 
-## Patterns
+---
+
+## Common Commands
+
+### Install Quota Utilities
 
 ```bash
-id alice
-getent passwd alice
-useradd -m alice
-passwd -S alice
-usermod -aG wheel alice
+dnf install -y quota
 ```
 
-## Reading Output
+### Display Filesystem Usage
 
-Focus on names, states, exit codes, and timestamps. For example, a service that is `enabled` is not necessarily `active`; a route in the table does not prove DNS works; and an open port in `ss` may still be blocked by firewalld or SELinux. When the command has a terse output format, repeat it with a verbose flag or query the related journal.
+```bash
+df -h
+```
 
-## Safe Practice
+### Verify Mounted Filesystems
 
-Run read-only commands first, then perform one controlled change. After the change, repeat the same read-only command and compare the output. This before-and-after discipline is the difference between casual shell usage and reliable operations. Add commands that solved real incidents to your own notes, but keep them general enough that you can reuse them without copying unsafe host-specific values.
+```bash
+mount
+```
+
+### Edit Filesystem Mount Options
+
+```bash
+vim /etc/fstab
+```
+
+### Remount Filesystem
+
+```bash
+mount -o remount /data
+```
+
+### Initialize Quota Database
+
+```bash
+quotacheck -cug /data
+```
+
+### Enable Quotas
+
+```bash
+quotaon /data
+```
+
+### Disable Quotas
+
+```bash
+quotaoff /data
+```
+
+### Edit User Quotas
+
+```bash
+edquota devopsuser
+```
+
+### Display User Quota Usage
+
+```bash
+quota -u devopsuser
+```
+
+### Generate Quota Report
+
+```bash
+repquota /data
+```
+
+### Display Group Quota Usage
+
+```bash
+quota -g developers
+```
+
+---
+
+## Administrative Examples
+
+### Configure User Quotas in fstab
+
+Edit mount configuration:
+
+```bash
+vim /etc/fstab
+```
+
+Example configuration:
+
+```fstab
+UUID=1234abcd-5678-efgh-9012 /data xfs defaults,uquota,gquota 0 0
+```
+
+### Remount Filesystem with Quotas Enabled
+
+```bash
+mount -o remount /data
+```
+
+### Initialize Quota Database
+
+```bash
+quotacheck -cug /data
+```
+
+### Enable Quota Enforcement
+
+```bash
+quotaon /data
+```
+
+### Configure User Soft and Hard Limits
+
+```bash
+edquota devopsuser
+```
+
+Example limits:
+
+```text
+soft block limit: 5G
+hard block limit: 6G
+```
+
+### Generate Storage Usage Report
+
+```bash
+repquota /data
+```
+
+### Verify Quota Usage for User
+
+```bash
+quota -u devopsuser
+```
+
+---
+
+## Validation Commands
+
+### Verify Quota Mount Options
+
+```bash
+mount | grep quota
+```
+
+Example output:
+
+```text
+/dev/sdb1 on /data type xfs (rw,relatime,uquota,gquota)
+```
+
+### Validate Quota Status
+
+```bash
+quotaon -p /data
+```
+
+### Verify User Quota Usage
+
+```bash
+quota -u devopsuser
+```
+
+### Validate Group Quota Usage
+
+```bash
+quota -g developers
+```
+
+### Generate Detailed Quota Report
+
+```bash
+repquota -a
+```
+
+### Verify Filesystem Utilization
+
+```bash
+df -h
+```
+
+### Validate SELinux Contexts
+
+```bash
+ls -Zd /data
+```
+
+### Review Kernel and Storage Logs
+
+```bash
+journalctl -k
+```
+
+---
+
+## Troubleshooting Tips
+
+### Quotas Not Enforced
+
+Verify mount options:
+
+```bash
+mount | grep quota
+```
+
+Verify quota status:
+
+```bash
+quotaon -p /data
+```
+
+### Missing Quota Database Files
+
+Rebuild quota database:
+
+```bash
+quotacheck -cug /data
+```
+
+### User Exceeding Limits
+
+Display quota usage:
+
+```bash
+quota -u devopsuser
+```
+
+Modify quota limits:
+
+```bash
+edquota devopsuser
+```
+
+### Filesystem Remount Issues
+
+Validate fstab syntax:
+
+```bash
+mount -a
+```
+
+Review filesystem configuration:
+
+```bash
+cat /etc/fstab
+```
+
+### SELinux Access Problems
+
+Review contexts:
+
+```bash
+ls -Z /data
+```
+
+Restore contexts:
+
+```bash
+restorecon -Rv /data
+```
+
+### Quota Utilities Missing
+
+Verify package installation:
+
+```bash
+rpm -q quota
+```
+
+Install quota tools:
+
+```bash
+dnf install -y quota
+```
+
+---
+
+## Operational Notes
+
+- Use quotas to enforce enterprise storage governance policies.
+- Monitor shared filesystem utilization regularly.
+- Configure both soft and hard limits for operational flexibility.
+- Validate quota enforcement after filesystem maintenance activities.
+- Maintain backup procedures before modifying production storage configurations.
+- Use quota reporting during compliance and audit reviews.
+- Validate SELinux contexts after storage migrations or restorations.
+
+Example operational audit commands:
+
+```bash
+repquota -a
+quota -u devopsuser
+df -Th
+```
+
+---
+
+## Screenshot Reference
+
+![Validation Screenshot](../screenshots/quotas.png)
