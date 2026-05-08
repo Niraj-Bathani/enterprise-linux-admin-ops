@@ -1,0 +1,15 @@
+# Hardened OpenSSH server example. Test with: sshd -t -f sshd_config.example
+Port 22
+Protocol 2
+PermitRootLogin no
+PasswordAuthentication no
+PubkeyAuthentication yes
+PermitEmptyPasswords no
+X11Forwarding no
+AllowTcpForwarding yes
+ClientAliveInterval 300
+ClientAliveCountMax 2
+MaxAuthTries 3
+LoginGraceTime 30
+AllowGroups ssh-admins
+Subsystem sftp internal-sftp

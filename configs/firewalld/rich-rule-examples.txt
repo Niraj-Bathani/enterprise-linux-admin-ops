@@ -1,0 +1,9 @@
+# firewalld rich rule examples for training
+# Allow HTTP from a lab subnet
+firewall-cmd --permanent --add-rich-rule='rule family="ipv4" source address="192.168.56.0/24" service name="http" accept'
+
+# Log and reject SSH attempts from a test host
+firewall-cmd --permanent --add-rich-rule='rule family="ipv4" source address="192.168.56.200" service name="ssh" log prefix="ssh_reject" level="warning" reject'
+
+# Forward local port 8080 to backend port 80
+firewall-cmd --permanent --add-forward-port=port=8080:proto=tcp:toport=80

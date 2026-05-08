@@ -1,0 +1,1 @@
+image file placeholder: do not create a binary image or .drawio file in this repository.

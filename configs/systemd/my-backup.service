@@ -1,0 +1,14 @@
+# Example one-shot systemd backup service
+[Unit]
+Description=Run lab backup script
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/live-backup.sh
+Nice=10
+IOSchedulingClass=best-effort
+
+[Install]
+WantedBy=multi-user.target

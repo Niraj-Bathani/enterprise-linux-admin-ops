@@ -1,0 +1,22 @@
+# HAProxy lab configuration with two backend web servers
+global
+    log /dev/log local0
+    maxconn 2048
+
+defaults
+    mode http
+    log global
+    option httplog
+    timeout connect 5s
+    timeout client 30s
+    timeout server 30s
+
+frontend web_frontend
+    bind *:80
+    default_backend web_backends
+
+backend web_backends
+    balance roundrobin
+    option httpchk GET /
+    server web01 192.168.56.21:80 check
+    server web02 192.168.56.22:80 check

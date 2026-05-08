@@ -1,0 +1,4 @@
+# Example /etc/exports entry for an NFS lab
+# Restrict clients to the lab subnet and use sync for safer writes.
+/exports/projects 192.168.56.0/24(rw,sync,no_subtree_check,root_squash)
+/exports/tools    192.168.56.0/24(ro,sync,no_subtree_check,root_squash)

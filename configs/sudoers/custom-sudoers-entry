@@ -1,0 +1,3 @@
+# Place in /etc/sudoers.d/linuxlab and validate with visudo -cf /etc/sudoers.d/linuxlab
+%linuxlab ALL=(root) /usr/bin/systemctl status *, /usr/bin/journalctl *, /usr/bin/df, /usr/bin/ss
+%storageadmins ALL=(root) /usr/sbin/lvs, /usr/sbin/vgs, /usr/sbin/pvs, /usr/bin/lsblk
