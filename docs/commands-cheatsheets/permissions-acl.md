@@ -303,31 +303,6 @@ find /shared -type d -exec getfacl {} \;
 
 ---
 
-## Screenshot Capture
-
-Recommended screenshot content:
-
-- chmod operations
-- chown administration tasks
-- ACL configuration examples
-- getfacl validation output
-- SGID and sticky bit examples
-- SELinux validation commands
-- shared directory access validation
-- enterprise RHEL administration workflow
-
-Example commands shown in screenshot:
-
-```bash
-chmod 755 /srv/webapp
-chown apache:apache /srv/webapp
-setfacl -m g:backupteam:rwx /backup
-getfacl /backup
-ls -Zd /srv/webapp
-```
-
----
-
 ## Screenshot Reference
 
 ![Validation Screenshot](../screenshots/permissions-acl.png)
