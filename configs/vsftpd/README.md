@@ -153,6 +153,5 @@ FTP services should be monitored regularly for unauthorized access attempts, abn
 ![FTP Banner Validation](../screenshots/ftp-banner-validation.png)
 
 
-```markdown
 ![VSFTPD Chroot Validation](../screenshots/vsftpd-chroot-validation.png)
-```
+
