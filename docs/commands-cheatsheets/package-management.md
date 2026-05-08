@@ -1,33 +1,301 @@
-# Package Management
+# package-management.md
 
-## When To Use This Sheet
+# Package Management Commands Cheat Sheet
 
-Use this cheat sheet during daily administration and timed lab work. It is intentionally compact, but every command should still be read before it is executed. Replace device names, users, paths, ports, and service names with values from your system. For commands that change state, record the original state first so that rollback is possible.
+## Overview
 
-## Commands
+This document provides a practical enterprise Linux administration cheat sheet for package installation, repository administration, software lifecycle management, and RPM validation operations on Red Hat Enterprise Linux (RHEL) 9.6 systems.
 
-| Command | Typical use |
+The commands and workflows included are commonly used during enterprise server provisioning, patch management, dependency troubleshooting, software auditing, and operational maintenance activities.
+
+This reference is designed for fast operational lookup during production Linux administration tasks.
+
+---
+
+## Environment Information
+
+| Component | Details |
 |---|---|
-| `dnf repolist` | Inspect, configure, or validate the packages area in a repeatable way. |
-| `dnf search httpd` | Inspect, configure, or validate the packages area in a repeatable way. |
-| `dnf install -y httpd` | Inspect, configure, or validate the packages area in a repeatable way. |
-| `rpm -qf /usr/sbin/httpd` | Inspect, configure, or validate the packages area in a repeatable way. |
-| `dnf history info last` | Inspect, configure, or validate the packages area in a repeatable way. |
+| Operating System | RHEL 9.6 |
+| Hostname | rhel01.lab.local |
+| Package Manager | DNF / RPM |
+| Repository Type | RHEL BaseOS and AppStream |
+| SELinux Mode | Enforcing |
+| User Context | root / sudo administrator |
+| Lab Platform | VMware Enterprise Lab |
 
-## Patterns
+---
+
+## Common Commands
+
+### Check Installed Package
+
+```bash
+rpm -q httpd
+```
+
+### Install Package
+
+```bash
+dnf install -y httpd
+```
+
+### Remove Package
+
+```bash
+dnf remove -y httpd
+```
+
+### Update All Packages
+
+```bash
+dnf update -y
+```
+
+### Search Repository Packages
+
+```bash
+dnf search nginx
+```
+
+### Display Package Information
+
+```bash
+dnf info haproxy
+```
+
+### List Enabled Repositories
 
 ```bash
 dnf repolist
-dnf search httpd
-dnf install -y httpd
-rpm -qf /usr/sbin/httpd
-dnf history info last
 ```
 
-## Reading Output
+### Clean Repository Cache
 
-Focus on names, states, exit codes, and timestamps. For example, a service that is `enabled` is not necessarily `active`; a route in the table does not prove DNS works; and an open port in `ss` may still be blocked by firewalld or SELinux. When the command has a terse output format, repeat it with a verbose flag or query the related journal.
+```bash
+dnf clean all
+```
 
-## Safe Practice
+### Rebuild Package Cache
 
-Run read-only commands first, then perform one controlled change. After the change, repeat the same read-only command and compare the output. This before-and-after discipline is the difference between casual shell usage and reliable operations. Add commands that solved real incidents to your own notes, but keep them general enough that you can reuse them without copying unsafe host-specific values.
+```bash
+dnf makecache
+```
+
+### Display Package Dependencies
+
+```bash
+repoquery --requires httpd
+```
+
+### Verify RPM Package Integrity
+
+```bash
+rpm -V openssh-server
+```
+
+### Display Package Files
+
+```bash
+rpm -ql httpd
+```
+
+---
+
+## Administrative Examples
+
+### Install Apache Web Server
+
+```bash
+dnf install -y httpd mod_ssl
+```
+
+### Install Performance Monitoring Utilities
+
+```bash
+dnf install -y sysstat iotop tuned
+```
+
+### Install Development Tools Group
+
+```bash
+dnf groupinstall -y "Development Tools"
+```
+
+### Verify Installed Services
+
+```bash
+rpm -qa | grep httpd
+```
+
+### Configure Repository Validation
+
+```bash
+dnf repolist all
+```
+
+### Download Package Without Installation
+
+```bash
+dnf download nginx
+```
+
+### Check Available Security Updates
+
+```bash
+dnf updateinfo list security
+```
+
+### Display Transaction History
+
+```bash
+dnf history
+```
+
+---
+
+## Validation Commands
+
+### Verify Package Installation
+
+```bash
+rpm -q httpd
+```
+
+Example output:
+
+```text
+httpd-2.4.57-8.el9.x86_64
+```
+
+### Verify Repository Availability
+
+```bash
+dnf repolist
+```
+
+### Validate Installed Binary
+
+```bash
+which httpd
+```
+
+### Verify Package Ownership of File
+
+```bash
+rpm -qf /usr/sbin/httpd
+```
+
+### Verify RPM Database Integrity
+
+```bash
+rpm --verifydb
+```
+
+### Review DNF Logs
+
+```bash
+cat /var/log/dnf.log
+```
+
+### Validate SELinux Contexts
+
+```bash
+ls -Z /usr/sbin/httpd
+```
+
+---
+
+## Troubleshooting Tips
+
+### Repository Metadata Errors
+
+Clear repository cache:
+
+```bash
+dnf clean all
+```
+
+Rebuild metadata:
+
+```bash
+dnf makecache
+```
+
+### Package Dependency Failures
+
+Validate dependencies:
+
+```bash
+dnf deplist httpd
+```
+
+Attempt dependency resolution:
+
+```bash
+dnf distro-sync
+```
+
+### RPM Database Corruption
+
+Rebuild RPM database:
+
+```bash
+rpm --rebuilddb
+```
+
+### Package Verification Failures
+
+Verify modified package files:
+
+```bash
+rpm -V openssh-server
+```
+
+### Subscription or Repository Access Issues
+
+Verify repository configuration:
+
+```bash
+subscription-manager repos --list-enabled
+```
+
+### SELinux Access Issues
+
+Review SELinux denials:
+
+```bash
+ausearch -m avc -ts recent
+```
+
+Restore package file contexts:
+
+```bash
+restorecon -Rv /usr/sbin/httpd
+```
+
+---
+
+## Operational Notes
+
+- Maintain regular enterprise patch management schedules.
+- Validate packages before production deployment.
+- Monitor security advisories and vulnerability updates.
+- Use repository controls to maintain package consistency.
+- Validate installed package integrity during audits.
+- Document custom repository configurations.
+- Maintain operational rollback procedures using DNF history.
+
+Example operational audit commands:
+
+```bash
+dnf history
+rpm -qa --last | head
+```
+
+---
+
+## Screenshot Reference
+
+![Validation Screenshot](../screenshots/package-management.png)
+
