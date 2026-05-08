@@ -1,33 +1,313 @@
-# Process Management
+# process-management.md
 
-## When To Use This Sheet
+# Process Management Commands Cheat Sheet
 
-Use this cheat sheet during daily administration and timed lab work. It is intentionally compact, but every command should still be read before it is executed. Replace device names, users, paths, ports, and service names with values from your system. For commands that change state, record the original state first so that rollback is possible.
+## Overview
 
-## Commands
+This document provides a practical enterprise Linux administration cheat sheet for process monitoring, task management, resource analysis, and operational troubleshooting on Red Hat Enterprise Linux (RHEL) 9.6 systems.
 
-| Command | Typical use |
+The commands and workflows included are commonly used during enterprise infrastructure administration, application diagnostics, performance investigations, capacity analysis, and incident response activities.
+
+This reference is designed for fast operational lookup during production Linux administration tasks.
+
+---
+
+## Environment Information
+
+| Component | Details |
 |---|---|
-| `ps -eo pid,ppid,user,stat,comm,%cpu,%mem --sort=-%cpu \| head` | Inspect, configure, or validate the process area in a repeatable way. |
-| `top -b -n1 \| head -20` | Inspect, configure, or validate the process area in a repeatable way. |
-| `nice -n 10 command` | Inspect, configure, or validate the process area in a repeatable way. |
-| `renice 5 -p 1234` | Inspect, configure, or validate the process area in a repeatable way. |
-| `kill -TERM 1234` | Inspect, configure, or validate the process area in a repeatable way. |
+| Operating System | RHEL 9.6 |
+| Hostname | rhel01.lab.local |
+| Kernel Version | 5.14.x |
+| SELinux Mode | Enforcing |
+| Monitoring Utilities | procps-ng / sysstat |
+| User Context | root / sudo administrator |
+| Lab Platform | VMware Enterprise Lab |
 
-## Patterns
+---
+
+## Common Commands
+
+### Display Running Processes
 
 ```bash
-ps -eo pid,ppid,user,stat,comm,%cpu,%mem --sort=-%cpu | head
-top -b -n1 | head -20
-nice -n 10 command
-renice 5 -p 1234
-kill -TERM 1234
+ps -ef
 ```
 
-## Reading Output
+### Display Process Tree
 
-Focus on names, states, exit codes, and timestamps. For example, a service that is `enabled` is not necessarily `active`; a route in the table does not prove DNS works; and an open port in `ss` may still be blocked by firewalld or SELinux. When the command has a terse output format, repeat it with a verbose flag or query the related journal.
+```bash
+pstree
+```
 
-## Safe Practice
+### Interactive Process Monitor
 
-Run read-only commands first, then perform one controlled change. After the change, repeat the same read-only command and compare the output. This before-and-after discipline is the difference between casual shell usage and reliable operations. Add commands that solved real incidents to your own notes, but keep them general enough that you can reuse them without copying unsafe host-specific values.
+```bash
+top
+```
+
+### Enhanced Interactive Monitoring
+
+```bash
+htop
+```
+
+### Display CPU and Memory Usage
+
+```bash
+top -o %CPU
+```
+
+### Search for Specific Process
+
+```bash
+pgrep httpd
+```
+
+### Display Process Details
+
+```bash
+ps -fp 1024
+```
+
+### Terminate Process Gracefully
+
+```bash
+kill 1024
+```
+
+### Force Kill Process
+
+```bash
+kill -9 1024
+```
+
+### Kill Processes by Name
+
+```bash
+pkill nginx
+```
+
+### Display Real-Time Resource Usage
+
+```bash
+vmstat 2
+```
+
+### Monitor Per-Process I/O Usage
+
+```bash
+iotop
+```
+
+---
+
+## Administrative Examples
+
+### Identify High CPU Utilization Process
+
+```bash
+top -o %CPU
+```
+
+### Monitor Apache Worker Processes
+
+```bash
+ps -ef | grep httpd
+```
+
+### Display Memory Consumption
+
+```bash
+ps aux --sort=-%mem | head
+```
+
+### Investigate Zombie Processes
+
+```bash
+ps aux | grep Z
+```
+
+### Monitor System Load
+
+```bash
+uptime
+```
+
+Example output:
+
+```text
+14:10:22 up 5 days,  2:44,  3 users,  load average: 0.21, 0.18, 0.11
+```
+
+### Trace Running Service Process
+
+```bash
+systemctl status httpd
+```
+
+### Capture Process Resource Statistics
+
+```bash
+pidstat 2 5
+```
+
+### Identify Open Files by Process
+
+```bash
+lsof -p 1024
+```
+
+---
+
+## Validation Commands
+
+### Verify Running Service Process
+
+```bash
+pgrep -a httpd
+```
+
+### Validate Parent and Child Processes
+
+```bash
+pstree -p
+```
+
+### Verify Listening Process Ports
+
+```bash
+ss -tulpn
+```
+
+### Monitor CPU Statistics
+
+```bash
+mpstat
+```
+
+### Verify Memory Utilization
+
+```bash
+free -h
+```
+
+### Validate I/O Activity
+
+```bash
+iostat -x 2
+```
+
+### Review Process Audit Logs
+
+```bash
+journalctl -xe
+```
+
+### Verify SELinux Contexts for Running Processes
+
+```bash
+ps -eZ | grep httpd
+```
+
+---
+
+## Troubleshooting Tips
+
+### High CPU Utilization
+
+Identify top CPU-consuming processes:
+
+```bash
+ps aux --sort=-%cpu | head
+```
+
+Monitor continuously:
+
+```bash
+top
+```
+
+### High Memory Consumption
+
+Display memory-intensive processes:
+
+```bash
+ps aux --sort=-%mem | head
+```
+
+### Unresponsive Processes
+
+Attempt graceful termination first:
+
+```bash
+kill PID
+```
+
+Force terminate if necessary:
+
+```bash
+kill -9 PID
+```
+
+### Excessive I/O Usage
+
+Monitor disk-intensive processes:
+
+```bash
+iotop
+```
+
+### Service Process Missing
+
+Verify service state:
+
+```bash
+systemctl status httpd
+```
+
+Review logs:
+
+```bash
+journalctl -u httpd
+```
+
+### SELinux Blocking Processes
+
+Review AVC denials:
+
+```bash
+ausearch -m avc -ts recent
+```
+
+Validate SELinux contexts:
+
+```bash
+ps -eZ
+```
+
+---
+
+## Operational Notes
+
+- Monitor resource utilization during production maintenance windows.
+- Investigate abnormal CPU, memory, and I/O patterns proactively.
+- Use process monitoring tools during application troubleshooting.
+- Validate service process ownership and SELinux contexts.
+- Avoid force-killing critical enterprise services without impact analysis.
+- Monitor system load trends for capacity planning.
+- Use `journalctl` for process-related operational investigations.
+
+Example operational audit commands:
+
+```bash
+ps -eo pid,ppid,user,%cpu,%mem,cmd --sort=-%cpu | head
+sar -u 1 5
+```
+
+---
+
+## Screenshot Reference
+
+![Validation Screenshot](../screenshots/process-management.png)
+
