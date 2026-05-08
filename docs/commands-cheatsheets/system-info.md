@@ -1,33 +1,263 @@
-# System Info
+# System Information Commands Cheat Sheet
 
-## When To Use This Sheet
+## Overview
 
-Use this cheat sheet during daily administration and timed lab work. It is intentionally compact, but every command should still be read before it is executed. Replace device names, users, paths, ports, and service names with values from your system. For commands that change state, record the original state first so that rollback is possible.
+This cheat sheet contains commonly used system information commands for RHEL 9.6 enterprise Linux administration and operational troubleshooting.
 
-## Commands
+These commands help administrators:
 
-| Command | Typical use |
+- identify system hardware
+- verify operating system details
+- monitor uptime
+- validate kernel information
+- review CPU and memory usage
+- troubleshoot infrastructure issues
+
+---
+
+# Environment Information
+
+| Component | Value |
 |---|---|
-| `pwd` | Inspect, configure, or validate the filesystem area in a repeatable way. |
-| `ls -lah /etc` | Inspect, configure, or validate the filesystem area in a repeatable way. |
-| `find /var/log -maxdepth 1 -type f` | Inspect, configure, or validate the filesystem area in a repeatable way. |
-| `df -hT` | Inspect, configure, or validate the filesystem area in a repeatable way. |
-| `du -sh /var/log/* \| sort -h` | Inspect, configure, or validate the filesystem area in a repeatable way. |
+| Operating System | RHEL 9.6 |
+| Kernel Series | 5.14.x |
+| Shell | Bash |
+| Architecture | x86_64 |
 
-## Patterns
+---
+
+# Operating System Information
+
+## Display OS Release Information
 
 ```bash
-pwd
-ls -lah /etc
-find /var/log -maxdepth 1 -type f
-df -hT
-du -sh /var/log/* | sort -h
+cat /etc/redhat-release
 ```
 
-## Reading Output
+## Display Hostname Information
 
-Focus on names, states, exit codes, and timestamps. For example, a service that is `enabled` is not necessarily `active`; a route in the table does not prove DNS works; and an open port in `ss` may still be blocked by firewalld or SELinux. When the command has a terse output format, repeat it with a verbose flag or query the related journal.
+```bash
+hostnamectl
+```
 
-## Safe Practice
+## Verify Kernel Version
 
-Run read-only commands first, then perform one controlled change. After the change, repeat the same read-only command and compare the output. This before-and-after discipline is the difference between casual shell usage and reliable operations. Add commands that solved real incidents to your own notes, but keep them general enough that you can reuse them without copying unsafe host-specific values.
+```bash
+uname -r
+```
+
+## Verify System Architecture
+
+```bash
+uname -m
+```
+
+---
+
+# System Uptime And Load
+
+## Display System Uptime
+
+```bash
+uptime
+```
+
+## Display Current Logged-In Users
+
+```bash
+who
+```
+
+## Display Last Reboot Information
+
+```bash
+last reboot
+```
+
+---
+
+# CPU Information
+
+## Display CPU Information
+
+```bash
+lscpu
+```
+
+## Display Processor Details
+
+```bash
+cat /proc/cpuinfo
+```
+
+## Display CPU Usage
+
+```bash
+top
+```
+
+---
+
+# Memory Information
+
+## Display Memory Usage
+
+```bash
+free -h
+```
+
+## Display Detailed Memory Information
+
+```bash
+cat /proc/meminfo
+```
+
+---
+
+# Disk Information
+
+## Display Mounted Filesystems
+
+```bash
+df -h
+```
+
+## Display Block Devices
+
+```bash
+lsblk
+```
+
+## Display Disk Usage
+
+```bash
+du -sh /var/log
+```
+
+---
+
+# Network Information
+
+## Display IP Address Information
+
+```bash
+ip addr
+```
+
+## Display Routing Table
+
+```bash
+ip route
+```
+
+## Display Listening Ports
+
+```bash
+ss -tulpn
+```
+
+---
+
+# Hardware Information
+
+## Display PCI Devices
+
+```bash
+lspci
+```
+
+## Display USB Devices
+
+```bash
+lsusb
+```
+
+## Display Loaded Kernel Modules
+
+```bash
+lsmod
+```
+
+---
+
+# System Logging
+
+## View System Boot Logs
+
+```bash
+journalctl -b
+```
+
+## View Recent System Messages
+
+```bash
+dmesg | tail
+```
+
+---
+
+# Administrative Validation Commands
+
+## Verify SELinux Mode
+
+```bash
+getenforce
+```
+
+## Verify Firewall Status
+
+```bash
+systemctl status firewalld
+```
+
+## Verify Running Services
+
+```bash
+systemctl list-units --type=service
+```
+
+---
+
+# Troubleshooting Tips
+
+| Issue | Validation Command |
+|---|---|
+| High CPU usage | `top` |
+| Low memory | `free -h` |
+| Disk full | `df -h` |
+| Network issue | `ip addr` |
+| Boot problems | `journalctl -b` |
+| Failed services | `systemctl --failed` |
+
+---
+
+# Operational Notes
+
+These commands reflect enterprise Linux operational practices commonly used in RHEL 9.6 environments.
+
+Administrators should regularly validate:
+
+- system uptime
+- CPU utilization
+- memory usage
+- filesystem capacity
+- network connectivity
+- kernel version consistency
+- active services
+- system logs
+
+System information commands are essential for infrastructure troubleshooting and operational monitoring.
+
+---
+
+# Screenshot Capture
+
+| Screenshot Requirement | Filename |
+|---|---|
+| System information command validation | `system-info-validation.png` |
+
+---
+
+# Screenshot Reference
+
+![System Information Validation](../screenshots/system-info-validation.png)
