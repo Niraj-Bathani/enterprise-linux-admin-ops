@@ -1,33 +1,309 @@
-# File Operations
+# File Operations Commands Cheat Sheet
 
-## When To Use This Sheet
+## Overview
 
-Use this cheat sheet during daily administration and timed lab work. It is intentionally compact, but every command should still be read before it is executed. Replace device names, users, paths, ports, and service names with values from your system. For commands that change state, record the original state first so that rollback is possible.
+This cheat sheet contains commonly used file operation commands for RHEL 9.6 enterprise Linux administration and operational management.
 
-## Commands
+These commands help administrators:
 
-| Command | Typical use |
+- create and manage files
+- copy and move data
+- archive files
+- validate permissions
+- inspect file contents
+- troubleshoot storage and operational issues
+
+---
+
+# Environment Information
+
+| Component | Value |
 |---|---|
-| `pwd` | Inspect, configure, or validate the filesystem area in a repeatable way. |
-| `ls -lah /etc` | Inspect, configure, or validate the filesystem area in a repeatable way. |
-| `find /var/log -maxdepth 1 -type f` | Inspect, configure, or validate the filesystem area in a repeatable way. |
-| `df -hT` | Inspect, configure, or validate the filesystem area in a repeatable way. |
-| `du -sh /var/log/* \| sort -h` | Inspect, configure, or validate the filesystem area in a repeatable way. |
+| Operating System | RHEL 9.6 |
+| Default Shell | Bash |
+| Filesystem Type | XFS |
+| Temporary Workspace | `/tmp` |
 
-## Patterns
+---
+
+# File Creation Commands
+
+## Create Empty File
 
 ```bash
-pwd
-ls -lah /etc
-find /var/log -maxdepth 1 -type f
-df -hT
-du -sh /var/log/* | sort -h
+touch testfile.txt
 ```
 
-## Reading Output
+## Create File Using Redirect
 
-Focus on names, states, exit codes, and timestamps. For example, a service that is `enabled` is not necessarily `active`; a route in the table does not prove DNS works; and an open port in `ss` may still be blocked by firewalld or SELinux. When the command has a terse output format, repeat it with a verbose flag or query the related journal.
+```bash
+echo "RHEL 9.6 Lab" > info.txt
+```
 
-## Safe Practice
+## Create Multiple Files
 
-Run read-only commands first, then perform one controlled change. After the change, repeat the same read-only command and compare the output. This before-and-after discipline is the difference between casual shell usage and reliable operations. Add commands that solved real incidents to your own notes, but keep them general enough that you can reuse them without copying unsafe host-specific values.
+```bash
+touch file1 file2 file3
+```
+
+---
+
+# File Viewing Commands
+
+## Display File Contents
+
+```bash
+cat info.txt
+```
+
+## View File One Page At A Time
+
+```bash
+less /var/log/messages
+```
+
+## Display Beginning Of File
+
+```bash
+head -n 10 /etc/passwd
+```
+
+## Display End Of File
+
+```bash
+tail -n 10 /var/log/messages
+```
+
+## Monitor File In Real Time
+
+```bash
+tail -f /var/log/secure
+```
+
+---
+
+# File Copy Operations
+
+## Copy File
+
+```bash
+cp info.txt /tmp
+```
+
+## Copy Directory Recursively
+
+```bash
+cp -r /etc/skel /tmp/skel-backup
+```
+
+## Preserve File Attributes
+
+```bash
+cp -a /var/log /tmp/log-backup
+```
+
+---
+
+# File Move And Rename Operations
+
+## Move File
+
+```bash
+mv info.txt /tmp
+```
+
+## Rename File
+
+```bash
+mv oldfile.txt newfile.txt
+```
+
+## Move Multiple Files
+
+```bash
+mv *.log /tmp/logs
+```
+
+---
+
+# File Removal Commands
+
+## Remove File
+
+```bash
+rm testfile.txt
+```
+
+## Remove Multiple Files
+
+```bash
+rm file1 file2
+```
+
+## Remove Directory Recursively
+
+```bash
+rm -rf /tmp/skel-backup
+```
+
+---
+
+# File Permission Validation
+
+## Verify File Permissions
+
+```bash
+ls -lh
+```
+
+## Verify Ownership
+
+```bash
+ls -l /etc/passwd
+```
+
+## Display SELinux Contexts
+
+```bash
+ls -Z
+```
+
+---
+
+# File Search Operations
+
+## Search File By Name
+
+```bash
+find /etc -name "*.conf"
+```
+
+## Search File By Size
+
+```bash
+find /var/log -size +10M
+```
+
+## Search Text Inside File
+
+```bash
+grep root /etc/passwd
+```
+
+---
+
+# Compression And Archiving
+
+## Create Tar Archive
+
+```bash
+tar -cvf backup.tar /etc
+```
+
+## Create Compressed Archive
+
+```bash
+tar -czvf backup.tar.gz /etc
+```
+
+## Extract Archive
+
+```bash
+tar -xzvf backup.tar.gz
+```
+
+---
+
+# File Integrity And Information
+
+## Display File Type
+
+```bash
+file /etc/passwd
+```
+
+## Display File Size
+
+```bash
+du -sh /var/log
+```
+
+## Compare Files
+
+```bash
+diff file1 file2
+```
+
+## Verify Checksum
+
+```bash
+sha256sum backup.tar.gz
+```
+
+---
+
+# Administrative Validation Commands
+
+## Verify Available Disk Space
+
+```bash
+df -h
+```
+
+## Verify Open Files
+
+```bash
+lsof | head
+```
+
+## Verify Mounted Filesystems
+
+```bash
+mount
+```
+
+---
+
+# Troubleshooting Tips
+
+| Issue | Validation Command |
+|---|---|
+| File missing | `find` |
+| Permission denied | `ls -l` |
+| Disk full | `df -h` |
+| Corrupted archive | `tar -tvf` |
+| SELinux issue | `ls -Z` |
+| Locked file | `lsof` |
+
+---
+
+# Operational Notes
+
+These commands reflect enterprise Linux file management practices commonly used in RHEL 9.6 environments.
+
+Administrators should regularly validate:
+
+- file ownership
+- permissions
+- archive integrity
+- filesystem capacity
+- file locations
+- SELinux contexts
+- backup operations
+- file integrity checks
+
+File operation skills are essential for enterprise Linux troubleshooting and infrastructure administration.
+
+---
+
+# Screenshot Capture
+
+| Screenshot Requirement | Filename |
+|---|---|
+| File operations validation | `file-operations-validation.png` |
+
+---
+
+# Screenshot Reference
+
+![File Operations Validation](../screenshots/file-operations-validation.png)
