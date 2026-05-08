@@ -1,31 +1,274 @@
-# BIOS MBR Recovery
+# BIOS MBR Boot Recovery Procedure
 
-## Recovery Objective
+## Objective
 
-BIOS MBR Recovery teaches controlled recovery from boot or early system startup problems. Boot recovery is high risk because an incorrect command can make a system harder to reach. Practice only in a VM with a current snapshot, and keep console access available. Do not perform boot loader writes on production systems without a tested backup and maintenance window.
+Recover a failed BIOS/MBR bootloader in a RHEL 9.6 enterprise Linux environment using rescue mode and GRUB2 recovery procedures.
 
-## Concepts
+---
 
-A Linux boot path usually includes firmware, a boot loader, a kernel, an initramfs image, the root filesystem, and systemd. UEFI systems store boot entries in firmware and files under the EFI system partition. BIOS or MBR systems rely on boot code in the disk layout. initramfs problems often appear after storage, driver, encryption, or LVM changes.
+# Why It Matters
 
-## Commands
+Legacy BIOS/MBR boot failures still occur in enterprise Linux environments due to:
 
-```bash
-efibootmgr -v
-grub2-mkconfig -o /boot/grub2/grub.cfg
-dracut -f
-lsinitrd /boot/initramfs-$(uname -r).img | head
-journalctl -b -1 -p warning
+- corrupted MBR boot records
+- failed GRUB updates
+- damaged boot partitions
+- disk cloning issues
+- accidental bootloader overwrite
+- storage migration operations
+
+Enterprise administrators must be able to restore boot functionality rapidly to reduce operational downtime.
+
+---
+
+# Environment Information
+
+| Component | Value |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Boot Mode | BIOS / Legacy |
+| Bootloader | GRUB2 |
+| Boot Disk | `/dev/sda` |
+| Rescue Media | RHEL 9.6 ISO |
+
+---
+
+# Common Failure Symptoms
+
+| Symptom | Description |
+|---|---|
+| `grub>` prompt | Missing GRUB configuration |
+| Black screen after BIOS | Corrupted MBR |
+| Operating system not found | Bootloader missing |
+| Kernel panic | Missing boot files |
+| Rescue shell appears | Boot process failure |
+
+---
+
+# Boot Into Rescue Environment
+
+## Attach RHEL Installation ISO
+
+Mount the RHEL 9.6 installation ISO using the hypervisor or physical media.
+
+---
+
+## Boot Into Rescue Mode
+
+At the installer menu select:
+
+```text
+Troubleshooting → Rescue a Red Hat Enterprise Linux system
 ```
 
-## Method
+---
 
-Identify where the boot stops before changing anything. Firmware errors, GRUB prompts, initramfs emergency shells, and systemd rescue targets all point to different layers. Mount filesystems read/write only after you know which device is root. Rebuild GRUB or initramfs from a chroot when needed, then verify paths carefully before rebooting.
+# Identify Linux Partitions
 
-## Validation
+## List Block Devices
 
-A recovery is successful when the system boots twice, reaches the expected target, mounts all required filesystems, and records no unexplained boot errors in `journalctl -b`. Document the exact symptom, the failed layer, the fix, and the command output that proved the machine was healthy again.
+```bash
+lsblk
+```
 
-## Operator Notes
+## Verify Filesystems
 
-Treat BIOS MBR Recovery as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+```bash
+blkid
+```
+
+Typical root partition:
+
+```text
+/dev/mapper/rhel-root
+```
+
+Typical boot disk:
+
+```text
+/dev/sda
+```
+
+---
+
+# Mount Installed System
+
+## Mount Root Filesystem
+
+```bash
+mount /dev/mapper/rhel-root /mnt
+```
+
+## Mount Required Directories
+
+```bash
+mount --bind /dev /mnt/dev
+mount --bind /proc /mnt/proc
+mount --bind /sys /mnt/sys
+```
+
+---
+
+# Chroot Into Installed System
+
+## Enter Chroot Environment
+
+```bash
+chroot /mnt
+```
+
+---
+
+# Reinstall GRUB2 Bootloader
+
+## Install GRUB To MBR
+
+```bash
+grub2-install /dev/sda
+```
+
+Expected output:
+
+```text
+Installation finished. No error reported.
+```
+
+---
+
+# Rebuild GRUB Configuration
+
+## Generate GRUB Configuration
+
+```bash
+grub2-mkconfig -o /boot/grub2/grub.cfg
+```
+
+---
+
+# Rebuild Initramfs
+
+## Rebuild Initramfs Image
+
+```bash
+dracut -f
+```
+
+---
+
+# Verify Boot Files
+
+## Verify Kernel Files
+
+```bash
+ls -lh /boot
+```
+
+## Verify GRUB Files
+
+```bash
+ls -lh /boot/grub2
+```
+
+---
+
+# Exit Recovery Environment
+
+## Exit Chroot
+
+```bash
+exit
+```
+
+## Reboot System
+
+```bash
+reboot
+```
+
+Remove installation media before rebooting.
+
+---
+
+# Administrative Validation
+
+## Verify Running Kernel
+
+```bash
+uname -r
+```
+
+## Verify Boot Mode
+
+```bash
+[ ! -d /sys/firmware/efi ] && echo BIOS
+```
+
+## Verify GRUB Packages
+
+```bash
+rpm -qa | grep grub2
+```
+
+## Verify Mounted Filesystems
+
+```bash
+mount
+```
+
+---
+
+# Logging Validation
+
+## Review Boot Logs
+
+```bash
+journalctl -b
+```
+
+## Review Failed Boot Units
+
+```bash
+systemctl --failed
+```
+
+---
+
+# Common Issues And Fixes
+
+| Issue | Cause | Resolution |
+|---|---|---|
+| `grub2-install` fails | Incorrect disk selection | Verify target disk |
+| Boot still fails | Corrupted GRUB config | Rebuild using `grub2-mkconfig` |
+| Kernel panic | Damaged initramfs | Rebuild using `dracut -f` |
+| Rescue mode cannot detect system | Incorrect partition mapping | Verify using `lsblk` |
+
+---
+
+# Operational Quality Notes
+
+This BIOS/MBR recovery workflow reflects enterprise Linux disaster recovery practices commonly used in RHEL 9.6 environments.
+
+Enterprise administrators should validate:
+
+- MBR integrity
+- GRUB bootloader installation
+- kernel file availability
+- initramfs generation
+- successful system boot
+- filesystem mounting
+
+Boot recovery procedures should be validated regularly as part of enterprise disaster recovery exercises.
+
+---
+
+# Screenshot Capture
+
+| Screenshot Requirement | Filename |
+|---|---|
+| BIOS MBR recovery validation | `bios-mbr-recovery-validation.png` |
+
+---
+
+# Screenshot Reference
+
+![BIOS MBR Recovery Validation](../screenshots/bios-mbr-recovery-validation.png)
