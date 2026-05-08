@@ -1,1 +1,0 @@
-Place architecture diagrams here (PNG or draw.io) in private forks if needed. This training repository intentionally keeps only text placeholders and does not include image or draw.io files.
