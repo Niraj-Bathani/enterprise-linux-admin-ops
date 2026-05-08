@@ -1,1 +1,43 @@
+# haproxy-topology.drawio
 
+Import the following Mermaid layout into draw.io:
+
+```mermaid
+graph TD
+    CLIENTS[Client Systems]
+
+    subgraph LOADBALANCER[HAProxy Load Balancer]
+        LB01[LB01\n192.168.100.30]
+    end
+
+    subgraph WEBPOOL[Backend Web Servers]
+        WEB01[WEB01\n192.168.100.20]
+        WEB02[WEB02\n192.168.100.21]
+    end
+
+    CLIENTS --> LB01
+    LB01 --> WEB01
+    LB01 --> WEB02
+```
+
+Recommended draw.io styling:
+
+- Use dark theme
+- Use orange for HAProxy node
+- Use blue for web servers
+- Use green for clients
+- Add arrows for traffic flow
+- Add title:
+  HAProxy Load Balancer Topology
+
+Validation notes:
+
+- HAProxy frontend listens on port 80
+- Backend servers use Apache HTTP Server
+- Load balancing method:
+  roundrobin
+
+Suggested export filename:
+
+```text
+haproxy-topology.png
