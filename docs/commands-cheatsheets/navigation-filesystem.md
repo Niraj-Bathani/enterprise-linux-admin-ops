@@ -1,33 +1,277 @@
-# Navigation Filesystem
+# Navigation And Filesystem Commands Cheat Sheet
 
-## When To Use This Sheet
+## Overview
 
-Use this cheat sheet during daily administration and timed lab work. It is intentionally compact, but every command should still be read before it is executed. Replace device names, users, paths, ports, and service names with values from your system. For commands that change state, record the original state first so that rollback is possible.
+This cheat sheet contains commonly used filesystem navigation and directory management commands for RHEL 9.6 enterprise Linux administration.
 
-## Commands
+These commands help administrators:
 
-| Command | Typical use |
+- navigate filesystems
+- inspect directories
+- identify storage locations
+- verify mounted filesystems
+- troubleshoot path issues
+- manage enterprise Linux environments efficiently
+
+---
+
+# Environment Information
+
+| Component | Value |
 |---|---|
-| `lsblk -f` | Inspect, configure, or validate the storage area in a repeatable way. |
-| `blkid` | Inspect, configure, or validate the storage area in a repeatable way. |
-| `parted /dev/sdb print` | Inspect, configure, or validate the storage area in a repeatable way. |
-| `mkfs.xfs /dev/sdb1` | Inspect, configure, or validate the storage area in a repeatable way. |
-| `mount /dev/sdb1 /mnt/data` | Inspect, configure, or validate the storage area in a repeatable way. |
+| Operating System | RHEL 9.6 |
+| Default Shell | Bash |
+| Filesystem Type | XFS |
+| Root Filesystem | `/` |
 
-## Patterns
+---
+
+# Basic Navigation Commands
+
+## Display Current Directory
 
 ```bash
-lsblk -f
-blkid
-parted /dev/sdb print
-mkfs.xfs /dev/sdb1
-mount /dev/sdb1 /mnt/data
+pwd
 ```
 
-## Reading Output
+## List Directory Contents
 
-Focus on names, states, exit codes, and timestamps. For example, a service that is `enabled` is not necessarily `active`; a route in the table does not prove DNS works; and an open port in `ss` may still be blocked by firewalld or SELinux. When the command has a terse output format, repeat it with a verbose flag or query the related journal.
+```bash
+ls
+```
 
-## Safe Practice
+## List Detailed Directory Information
 
-Run read-only commands first, then perform one controlled change. After the change, repeat the same read-only command and compare the output. This before-and-after discipline is the difference between casual shell usage and reliable operations. Add commands that solved real incidents to your own notes, but keep them general enough that you can reuse them without copying unsafe host-specific values.
+```bash
+ls -lh
+```
+
+## List Hidden Files
+
+```bash
+ls -la
+```
+
+---
+
+# Directory Navigation
+
+## Change Directory
+
+```bash
+cd /var/log
+```
+
+## Return To Home Directory
+
+```bash
+cd ~
+```
+
+## Move Up One Directory
+
+```bash
+cd ..
+```
+
+## Return To Previous Directory
+
+```bash
+cd -
+```
+
+---
+
+# Filesystem Structure Exploration
+
+## List Root Filesystem
+
+```bash
+ls /
+```
+
+## Display Mounted Filesystems
+
+```bash
+df -h
+```
+
+## Display Block Devices
+
+```bash
+lsblk
+```
+
+## Display Filesystem Types
+
+```bash
+blkid
+```
+
+---
+
+# File Discovery Commands
+
+## Locate Files
+
+```bash
+find /etc -name "*.conf"
+```
+
+## Search Binary Location
+
+```bash
+which ssh
+```
+
+## Search Command Documentation
+
+```bash
+whereis systemctl
+```
+
+## Locate Files Using Database
+
+```bash
+locate sshd_config
+```
+
+---
+
+# Directory Management
+
+## Create Directory
+
+```bash
+mkdir /tmp/testdir
+```
+
+## Create Nested Directories
+
+```bash
+mkdir -p /tmp/projects/app
+```
+
+## Remove Empty Directory
+
+```bash
+rmdir /tmp/testdir
+```
+
+## Remove Directory Recursively
+
+```bash
+rm -rf /tmp/projects
+```
+
+---
+
+# File Inspection
+
+## Display File Type
+
+```bash
+file /etc/passwd
+```
+
+## Display Disk Usage
+
+```bash
+du -sh /var/log
+```
+
+## Display Directory Tree
+
+```bash
+tree /etc
+```
+
+---
+
+# Filesystem Validation
+
+## Verify Mount Points
+
+```bash
+mount
+```
+
+## Verify Available Inodes
+
+```bash
+df -i
+```
+
+## Verify Current User Location
+
+```bash
+pwd
+```
+
+---
+
+# Administrative Validation Commands
+
+## Verify System Hostname
+
+```bash
+hostnamectl
+```
+
+## Verify Active User
+
+```bash
+whoami
+```
+
+## Verify SELinux Contexts
+
+```bash
+ls -Z
+```
+
+---
+
+# Troubleshooting Tips
+
+| Issue | Validation Command |
+|---|---|
+| Cannot locate file | `find` |
+| Unknown command location | `which` |
+| Disk full | `df -h` |
+| Filesystem issue | `lsblk` |
+| Wrong directory | `pwd` |
+| Mount point issue | `mount` |
+
+---
+
+# Operational Notes
+
+These commands reflect enterprise Linux filesystem administration practices commonly used in RHEL 9.6 environments.
+
+Administrators should regularly validate:
+
+- mounted filesystems
+- directory permissions
+- filesystem capacity
+- file locations
+- mount points
+- storage layout
+- active paths
+- filesystem integrity
+
+Filesystem navigation skills are essential for enterprise Linux troubleshooting and infrastructure administration.
+
+---
+
+# Screenshot Capture
+
+| Screenshot Requirement | Filename |
+|---|---|
+| Navigation and filesystem validation | `navigation-filesystem-validation.png` |
+
+---
+
+# Screenshot Reference
+
+![Navigation And Filesystem Validation](../screenshots/navigation-filesystem-validation.png)
