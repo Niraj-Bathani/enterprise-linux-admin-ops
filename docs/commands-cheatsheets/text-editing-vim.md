@@ -299,4 +299,3 @@ ls -Z /etc/ssh/sshd_config
 
 ![Validation Screenshot](../screenshots/text-editing-vim.png)
 
-````
