@@ -323,4 +323,3 @@ sudo -l -U infraops
 
 ![Validation Screenshot](../screenshots/user-group-admin.png)
 
-````
