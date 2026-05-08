@@ -66,7 +66,6 @@ ss -tulpn | grep haproxy
 
 Screenshot Reference:
 
-
 ![HAProxy Backend Validation](../screenshots/haproxy-backend-validation.png)
 
 
