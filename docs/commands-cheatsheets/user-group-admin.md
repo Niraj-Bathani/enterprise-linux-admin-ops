@@ -1,33 +1,326 @@
-# User Group Admin
+# user-group-admin
 
-## When To Use This Sheet
+# User and Group Administration Commands Cheat Sheet
 
-Use this cheat sheet during daily administration and timed lab work. It is intentionally compact, but every command should still be read before it is executed. Replace device names, users, paths, ports, and service names with values from your system. For commands that change state, record the original state first so that rollback is possible.
+## Overview
 
-## Commands
+This document provides a practical enterprise Linux administration cheat sheet for user and group management operations on Red Hat Enterprise Linux (RHEL) 9.6 systems.
 
-| Command | Typical use |
+The commands and workflows included are commonly used during enterprise infrastructure administration, access control management, operational onboarding, privilege delegation, compliance validation, and troubleshooting activities.
+
+This reference is designed for fast operational lookup during production-style Linux administration tasks.
+
+---
+
+## Environment Information
+
+| Component | Details |
 |---|---|
-| `id alice` | Inspect, configure, or validate the users area in a repeatable way. |
-| `getent passwd alice` | Inspect, configure, or validate the users area in a repeatable way. |
-| `useradd -m alice` | Inspect, configure, or validate the users area in a repeatable way. |
-| `passwd -S alice` | Inspect, configure, or validate the users area in a repeatable way. |
-| `usermod -aG wheel alice` | Inspect, configure, or validate the users area in a repeatable way. |
+| Operating System | RHEL 9.6 |
+| Hostname | rhel01.lab.local |
+| User Context | root / sudo administrator |
+| Authentication Method | Local Linux Authentication |
+| SELinux Mode | Enforcing |
+| Lab Platform | VMware Enterprise Lab |
+| Shell Environment | Bash |
 
-## Patterns
+---
+
+## Common Commands
+
+### Create New User
 
 ```bash
-id alice
-getent passwd alice
-useradd -m alice
-passwd -S alice
-usermod -aG wheel alice
+useradd devopsuser
 ```
 
-## Reading Output
+### Create User with Home Directory
 
-Focus on names, states, exit codes, and timestamps. For example, a service that is `enabled` is not necessarily `active`; a route in the table does not prove DNS works; and an open port in `ss` may still be blocked by firewalld or SELinux. When the command has a terse output format, repeat it with a verbose flag or query the related journal.
+```bash
+useradd -m backupadmin
+```
 
-## Safe Practice
+### Set User Password
 
-Run read-only commands first, then perform one controlled change. After the change, repeat the same read-only command and compare the output. This before-and-after discipline is the difference between casual shell usage and reliable operations. Add commands that solved real incidents to your own notes, but keep them general enough that you can reuse them without copying unsafe host-specific values.
+```bash
+passwd devopsuser
+```
+
+### Create New Group
+
+```bash
+groupadd linuxadmins
+```
+
+### Add User to Supplementary Group
+
+```bash
+usermod -aG wheel devopsuser
+```
+
+### Display User ID Information
+
+```bash
+id devopsuser
+```
+
+### Display Group Memberships
+
+```bash
+groups devopsuser
+```
+
+### Lock User Account
+
+```bash
+usermod -L tempuser
+```
+
+### Unlock User Account
+
+```bash
+usermod -U tempuser
+```
+
+### Delete User Account
+
+```bash
+userdel obsoleteuser
+```
+
+### Delete User and Home Directory
+
+```bash
+userdel -r obsoleteuser
+```
+
+### Change User Shell
+
+```bash
+usermod -s /bin/bash devopsuser
+```
+
+### Display Last Login Information
+
+```bash
+lastlog
+```
+
+---
+
+## Administrative Examples
+
+### Create Infrastructure Operations User
+
+```bash
+useradd -m -c "Infrastructure Operations" infraops
+passwd infraops
+```
+
+### Add Administrator to Wheel Group
+
+```bash
+usermod -aG wheel infraops
+```
+
+### Verify Sudo Administrative Membership
+
+```bash
+id infraops
+```
+
+Example output:
+
+```text
+uid=1002(infraops) gid=1002(infraops) groups=1002(infraops),10(wheel)
+```
+
+### Create Application Support Group
+
+```bash
+groupadd appsupport
+```
+
+### Assign Multiple Group Memberships
+
+```bash
+usermod -aG appsupport,webadmins infraops
+```
+
+### Expire Temporary Contractor Account
+
+```bash
+chage -E 2026-12-31 contractor01
+```
+
+### Force Password Reset at Next Login
+
+```bash
+chage -d 0 devopsuser
+```
+
+---
+
+## Validation Commands
+
+### Verify User Entry
+
+```bash
+grep devopsuser /etc/passwd
+```
+
+### Verify Group Membership
+
+```bash
+grep wheel /etc/group
+```
+
+### Display Account Aging Information
+
+```bash
+chage -l devopsuser
+```
+
+### Verify User Home Directory
+
+```bash
+ls -ld /home/devopsuser
+```
+
+### Verify SELinux Contexts
+
+```bash
+ls -Zd /home/devopsuser
+```
+
+### Validate Sudo Access
+
+```bash
+sudo -l -U infraops
+```
+
+### Review Authentication Logs
+
+```bash
+journalctl -u sshd
+```
+
+---
+
+## Troubleshooting Tips
+
+### User Cannot Log In
+
+Possible causes:
+
+- locked account
+- expired password
+- expired account
+- invalid shell assignment
+- incorrect group membership
+
+Validation commands:
+
+```bash
+passwd -S devopsuser
+chage -l devopsuser
+cat /etc/passwd | grep devopsuser
+```
+
+### Home Directory Permission Issues
+
+Verify ownership and permissions:
+
+```bash
+ls -ld /home/devopsuser
+```
+
+Correct ownership if necessary:
+
+```bash
+chown -R devopsuser:devopsuser /home/devopsuser
+```
+
+### Sudo Access Not Working
+
+Verify wheel group membership:
+
+```bash
+id infraops
+```
+
+Verify sudoers configuration:
+
+```bash
+visudo
+```
+
+### SELinux Access Issues
+
+Restore default SELinux contexts:
+
+```bash
+restorecon -Rv /home/devopsuser
+```
+
+### Authentication Failures
+
+Review authentication logs:
+
+```bash
+journalctl -xe
+journalctl -u sshd
+```
+
+---
+
+## Operational Notes
+
+- Follow least-privilege access principles for all enterprise accounts.
+- Use centralized identity management where operationally required.
+- Regularly review inactive and expired user accounts.
+- Enforce password aging and rotation policies.
+- Validate wheel group membership during security audits.
+- Maintain proper documentation for privileged account access.
+- Remove obsolete contractor and temporary accounts promptly.
+
+Example operational audit commands:
+
+```bash
+awk -F: '$3 >= 1000 {print $1}' /etc/passwd
+lastlog
+```
+
+---
+
+## Screenshot Capture
+
+Recommended screenshot content:
+
+- useradd operations
+- group administration commands
+- wheel group membership validation
+- account aging information
+- SELinux home directory validation
+- sudo validation output
+- enterprise RHEL terminal prompt
+- operational administration workflow
+
+Example commands shown in screenshot:
+
+```bash
+useradd infraops
+usermod -aG wheel infraops
+id infraops
+chage -l infraops
+ls -Zd /home/infraops
+sudo -l -U infraops
+```
+
+---
+
+## Screenshot Reference
+
+![Validation Screenshot](../screenshots/user-group-admin.png)
+
+````
