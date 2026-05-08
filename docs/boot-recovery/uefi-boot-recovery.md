@@ -1,31 +1,278 @@
-# UEFI Boot Recovery
+# UEFI Boot Recovery Procedure
 
-## Recovery Objective
+## Objective
 
-UEFI Boot Recovery teaches controlled recovery from boot or early system startup problems. Boot recovery is high risk because an incorrect command can make a system harder to reach. Practice only in a VM with a current snapshot, and keep console access available. Do not perform boot loader writes on production systems without a tested backup and maintenance window.
+Recover a failed UEFI bootloader in a RHEL 9.6 enterprise Linux environment using rescue mode and GRUB2 recovery procedures.
 
-## Concepts
+---
 
-A Linux boot path usually includes firmware, a boot loader, a kernel, an initramfs image, the root filesystem, and systemd. UEFI systems store boot entries in firmware and files under the EFI system partition. BIOS or MBR systems rely on boot code in the disk layout. initramfs problems often appear after storage, driver, encryption, or LVM changes.
+# Why It Matters
 
-## Commands
+UEFI boot failures are common in enterprise Linux environments due to:
+
+- corrupted GRUB configuration
+- failed kernel upgrades
+- damaged EFI partitions
+- bootloader misconfiguration
+- filesystem corruption
+- storage migration operations
+
+Enterprise administrators must be able to restore boot functionality quickly to minimize downtime.
+
+---
+
+# Environment Information
+
+| Component | Value |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Boot Mode | UEFI |
+| Bootloader | GRUB2 |
+| EFI Partition | `/boot/efi` |
+| Rescue Media | RHEL 9.6 ISO |
+
+---
+
+# Common Failure Symptoms
+
+| Symptom | Description |
+|---|---|
+| GRUB prompt appears | Missing boot configuration |
+| Black screen during boot | EFI boot failure |
+| Kernel panic | Missing initramfs or kernel |
+| No boot entry found | Corrupted EFI partition |
+| Emergency mode | Filesystem or boot issue |
+
+---
+
+# Boot Into Rescue Environment
+
+## Attach RHEL Installation ISO
+
+Mount the RHEL 9.6 ISO using the hypervisor or physical media.
+
+---
+
+## Boot Into Rescue Mode
+
+At the installer menu select:
+
+```text
+Troubleshooting → Rescue a Red Hat Enterprise Linux system
+```
+
+---
+
+# Identify Linux Partitions
+
+## List Block Devices
+
+```bash
+lsblk
+```
+
+## Verify EFI Partition
+
+```bash
+blkid
+```
+
+Typical EFI partition:
+
+```text
+/dev/sda1
+```
+
+Typical root partition:
+
+```text
+/dev/mapper/rhel-root
+```
+
+---
+
+# Mount Installed System
+
+## Mount Root Filesystem
+
+```bash
+mount /dev/mapper/rhel-root /mnt
+```
+
+## Mount EFI Partition
+
+```bash
+mount /dev/sda1 /mnt/boot/efi
+```
+
+## Mount Required System Directories
+
+```bash
+mount --bind /dev /mnt/dev
+mount --bind /proc /mnt/proc
+mount --bind /sys /mnt/sys
+```
+
+---
+
+# Chroot Into Installed System
+
+## Enter Chroot Environment
+
+```bash
+chroot /mnt
+```
+
+---
+
+# Reinstall GRUB2 Bootloader
+
+## Install EFI Bootloader
+
+```bash
+grub2-install \
+--target=x86_64-efi \
+--efi-directory=/boot/efi \
+--bootloader-id=RHEL
+```
+
+---
+
+# Rebuild GRUB Configuration
+
+## Generate GRUB Configuration
+
+```bash
+grub2-mkconfig -o /boot/grub2/grub.cfg
+```
+
+---
+
+# Rebuild Initramfs
+
+## Rebuild Initramfs Image
+
+```bash
+dracut -f
+```
+
+---
+
+# Validate EFI Boot Entries
+
+## Verify EFI Entries
 
 ```bash
 efibootmgr -v
-grub2-mkconfig -o /boot/grub2/grub.cfg
-dracut -f
-lsinitrd /boot/initramfs-$(uname -r).img | head
-journalctl -b -1 -p warning
 ```
 
-## Method
+Expected output should show:
 
-Identify where the boot stops before changing anything. Firmware errors, GRUB prompts, initramfs emergency shells, and systemd rescue targets all point to different layers. Mount filesystems read/write only after you know which device is root. Rebuild GRUB or initramfs from a chroot when needed, then verify paths carefully before rebooting.
+```text
+Boot0001* RHEL
+```
 
-## Validation
+---
 
-A recovery is successful when the system boots twice, reaches the expected target, mounts all required filesystems, and records no unexplained boot errors in `journalctl -b`. Document the exact symptom, the failed layer, the fix, and the command output that proved the machine was healthy again.
+# Exit Recovery Environment
 
-## Operator Notes
+## Exit Chroot
 
-Treat UEFI Boot Recovery as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+```bash
+exit
+```
+
+## Reboot System
+
+```bash
+reboot
+```
+
+Remove installation media before rebooting.
+
+---
+
+# Administrative Validation
+
+## Verify Running Kernel
+
+```bash
+uname -r
+```
+
+## Verify Mounted EFI Partition
+
+```bash
+mount | grep efi
+```
+
+## Verify GRUB Packages
+
+```bash
+rpm -qa | grep grub2
+```
+
+## Verify Boot Mode
+
+```bash
+[ -d /sys/firmware/efi ] && echo UEFI
+```
+
+---
+
+# Logging Validation
+
+## Review Boot Logs
+
+```bash
+journalctl -b
+```
+
+## Review Failed Boot Units
+
+```bash
+systemctl --failed
+```
+
+---
+
+# Common Issues And Fixes
+
+| Issue | Cause | Resolution |
+|---|---|---|
+| `grub2-install` fails | EFI partition not mounted | Mount `/boot/efi` |
+| Boot entry missing | EFI configuration corrupted | Recreate using `efibootmgr` |
+| System still not booting | Initramfs corrupted | Rebuild with `dracut -f` |
+| Rescue mode cannot find root filesystem | Incorrect partition mapping | Verify using `lsblk` |
+
+---
+
+# Operational Quality Notes
+
+This UEFI recovery workflow reflects enterprise Linux disaster recovery practices commonly used in RHEL 9.6 environments.
+
+Enterprise administrators should validate:
+
+- EFI partition integrity
+- GRUB bootloader installation
+- initramfs availability
+- boot entry visibility
+- filesystem mounting
+- successful kernel boot
+
+Boot recovery procedures should be tested periodically as part of enterprise disaster recovery validation exercises.
+
+---
+
+# Screenshot Capture
+
+| Screenshot Requirement | Filename |
+|---|---|
+| UEFI boot recovery validation | `uefi-boot-recovery-validation.png` |
+
+---
+
+# Screenshot Reference
+
+
+![UEFI Boot Recovery Validation](../screenshots/uefi-boot-recovery-validation.png)
