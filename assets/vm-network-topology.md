@@ -81,4 +81,4 @@ showmount -e 192.168.100.40
 
 Screenshot Reference:
 
-![VMware Enterprise Linux Lab Topology](../screenshots/vmware-linux-lab-topology.png)
+![VMware Enterprise Linux Lab Topology](./screenshots/vmware-linux-lab-topology.png)
