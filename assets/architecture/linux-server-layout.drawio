@@ -1,1 +1,23 @@
+graph TD
+    INTERNET[Internet / External Network]
+    HOST[VMware Host Machine]
 
+    subgraph LAB[Enterprise Linux Lab Environment]
+        RHEL01[RHEL01 - Domain/Application Server\n192.168.100.10]
+        WEB01[WEB01 - Apache/PHP Server\n192.168.100.20]
+        LB01[LB01 - HAProxy Load Balancer\n192.168.100.30]
+        NFS01[NFS01 - Shared Storage Server\n192.168.100.40]
+        CLIENT01[CLIENT01 - Linux Admin Workstation\n192.168.100.50]
+    end
+
+    INTERNET --> HOST
+    HOST --> LAB
+
+    CLIENT01 --> RHEL01
+    CLIENT01 --> WEB01
+    CLIENT01 --> LB01
+    CLIENT01 --> NFS01
+
+    LB01 --> WEB01
+    WEB01 --> NFS01
+    RHEL01 --> NFS01
