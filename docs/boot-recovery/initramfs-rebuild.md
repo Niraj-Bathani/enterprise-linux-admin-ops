@@ -1,31 +1,245 @@
-# Initramfs Rebuild
+# Initramfs Rebuild Procedure
 
-## Recovery Objective
+## Objective
 
-Initramfs Rebuild teaches controlled recovery from boot or early system startup problems. Boot recovery is high risk because an incorrect command can make a system harder to reach. Practice only in a VM with a current snapshot, and keep console access available. Do not perform boot loader writes on production systems without a tested backup and maintenance window.
+Rebuild and validate the initramfs image in a RHEL 9.6 enterprise Linux environment to recover systems affected by boot failures, missing drivers, or corrupted initramfs images.
 
-## Concepts
+---
 
-A Linux boot path usually includes firmware, a boot loader, a kernel, an initramfs image, the root filesystem, and systemd. UEFI systems store boot entries in firmware and files under the EFI system partition. BIOS or MBR systems rely on boot code in the disk layout. initramfs problems often appear after storage, driver, encryption, or LVM changes.
+# Why It Matters
 
-## Commands
+Initramfs corruption can prevent enterprise Linux systems from booting properly.
+
+Common causes include:
+
+- failed kernel upgrades
+- missing storage drivers
+- corrupted initramfs images
+- disk migration operations
+- filesystem driver issues
+- interrupted system updates
+
+Enterprise administrators must understand how to rebuild initramfs safely to restore boot functionality.
+
+---
+
+# Environment Information
+
+| Component | Value |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Recovery Tool | `dracut` |
+| Initramfs Path | `/boot/initramfs-<kernel>.img` |
+| Kernel Version | `5.14.x` |
+| Bootloader | GRUB2 |
+
+---
+
+# Common Failure Symptoms
+
+| Symptom | Description |
+|---|---|
+| Kernel panic during boot | Missing drivers in initramfs |
+| Dracut emergency shell | Corrupted initramfs |
+| Root filesystem not found | Storage module missing |
+| Boot hangs | Failed early userspace initialization |
+| Rescue mode required | Boot process failure |
+
+---
+
+# Verify Current Kernel
+
+## Display Running Kernel
 
 ```bash
-efibootmgr -v
-grub2-mkconfig -o /boot/grub2/grub.cfg
-dracut -f
-lsinitrd /boot/initramfs-$(uname -r).img | head
-journalctl -b -1 -p warning
+uname -r
 ```
 
-## Method
+---
 
-Identify where the boot stops before changing anything. Firmware errors, GRUB prompts, initramfs emergency shells, and systemd rescue targets all point to different layers. Mount filesystems read/write only after you know which device is root. Rebuild GRUB or initramfs from a chroot when needed, then verify paths carefully before rebooting.
+# Verify Existing Initramfs Images
 
-## Validation
+## List Initramfs Files
 
-A recovery is successful when the system boots twice, reaches the expected target, mounts all required filesystems, and records no unexplained boot errors in `journalctl -b`. Document the exact symptom, the failed layer, the fix, and the command output that proved the machine was healthy again.
+```bash
+ls -lh /boot/initramfs*
+```
 
-## Operator Notes
+---
 
-Treat Initramfs Rebuild as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+# Backup Existing Initramfs
+
+## Create Backup Copy
+
+```bash
+sudo cp \
+/boot/initramfs-$(uname -r).img \
+/boot/initramfs-$(uname -r).img.bak
+```
+
+---
+
+# Rebuild Initramfs
+
+## Rebuild Current Kernel Initramfs
+
+```bash
+sudo dracut -f
+```
+
+Expected output:
+
+```text
+dracut: Generating /boot/initramfs-<kernel>.img
+```
+
+---
+
+# Rebuild Specific Kernel Initramfs
+
+## Rebuild Initramfs For Selected Kernel
+
+```bash
+sudo dracut -f \
+/boot/initramfs-5.14.x.img \
+5.14.x
+```
+
+---
+
+# Verify Rebuilt Image
+
+## Verify New Initramfs Timestamp
+
+```bash
+ls -lh /boot/initramfs*
+```
+
+## Verify File Type
+
+```bash
+file /boot/initramfs-$(uname -r).img
+```
+
+---
+
+# Validate Installed Drivers
+
+## List Included Kernel Modules
+
+```bash
+lsinitrd /boot/initramfs-$(uname -r).img
+```
+
+## Verify Storage Drivers
+
+```bash
+lsinitrd | grep xfs
+```
+
+---
+
+# Rebuild GRUB Configuration
+
+## Generate Updated GRUB Configuration
+
+```bash
+sudo grub2-mkconfig -o /boot/grub2/grub.cfg
+```
+
+---
+
+# Reboot System
+
+## Restart Server
+
+```bash
+sudo reboot
+```
+
+---
+
+# Administrative Validation
+
+## Verify Successful Boot
+
+```bash
+systemctl status
+```
+
+## Verify Running Kernel
+
+```bash
+uname -r
+```
+
+## Verify Mounted Root Filesystem
+
+```bash
+mount | grep " / "
+```
+
+## Verify Boot Logs
+
+```bash
+journalctl -b
+```
+
+---
+
+# Logging Validation
+
+## Review Dracut Logs
+
+```bash
+journalctl | grep dracut
+```
+
+## Review Failed Services
+
+```bash
+systemctl --failed
+```
+
+---
+
+# Common Issues And Fixes
+
+| Issue | Cause | Resolution |
+|---|---|---|
+| `dracut` fails | Missing disk space | Verify `/boot` capacity |
+| System still fails to boot | Missing drivers | Rebuild with required modules |
+| Wrong kernel image rebuilt | Incorrect kernel version | Verify using `uname -r` |
+| GRUB not updated | Missing GRUB rebuild | Run `grub2-mkconfig` |
+
+---
+
+# Operational Quality Notes
+
+This initramfs rebuild workflow reflects enterprise Linux recovery practices commonly used in RHEL 9.6 environments.
+
+Enterprise administrators should validate:
+
+- initramfs image generation
+- required storage drivers
+- successful system boot
+- GRUB configuration integrity
+- mounted root filesystem
+- kernel compatibility
+
+Initramfs rebuild procedures should be tested regularly during kernel maintenance and disaster recovery exercises.
+
+---
+
+# Screenshot Capture
+
+| Screenshot Requirement | Filename |
+|---|---|
+| Initramfs rebuild validation | `initramfs-rebuild-validation.png` |
+
+---
+
+# Screenshot Reference
+
+
+![Initramfs Rebuild Validation](../screenshots/initramfs-rebuild-validation.png)
