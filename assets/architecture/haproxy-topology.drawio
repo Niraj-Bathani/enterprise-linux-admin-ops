@@ -1,43 +1,72 @@
-# haproxy-topology.drawio
+# HAProxy Load Balancer Topology
 
-Import the following Mermaid layout into draw.io:
+Import the following Mermaid diagram into draw.io.
 
-```mermaid
 graph TD
-    CLIENTS[Client Systems]
 
-    subgraph LOADBALANCER[HAProxy Load Balancer]
-        LB01[LB01\n192.168.100.30]
+    INTERNET[Internet / Client Requests]
+
+    subgraph LOAD_BALANCER_LAYER[HAProxy Load Balancer Layer]
+        LB01[LB01\nHAProxy Server\n192.168.100.30]
     end
 
-    subgraph WEBPOOL[Backend Web Servers]
-        WEB01[WEB01\n192.168.100.20]
-        WEB02[WEB02\n192.168.100.21]
+    subgraph WEB_SERVER_POOL[Backend Apache Web Servers]
+        WEB01[WEB01\nApache/PHP\n192.168.100.20]
+        WEB02[WEB02\nApache/PHP\n192.168.100.21]
     end
 
-    CLIENTS --> LB01
+    subgraph STORAGE_LAYER[Shared Storage]
+        NFS01[NFS01\nNFS Storage Server\n192.168.100.40]
+    end
+
+    INTERNET --> LB01
+
     LB01 --> WEB01
     LB01 --> WEB02
+
+    WEB01 --> NFS01
+    WEB02 --> NFS01
 ```
 
 Recommended draw.io styling:
 
-- Use dark theme
-- Use orange for HAProxy node
-- Use blue for web servers
-- Use green for clients
-- Add arrows for traffic flow
+- Use dark enterprise theme
+- Use orange color for HAProxy node
+- Use blue color for web servers
+- Use green color for storage server
+- Use directional arrows for traffic flow
 - Add title:
-  HAProxy Load Balancer Topology
+  Enterprise HAProxy Infrastructure Topology
 
-Validation notes:
+Operational Notes:
 
-- HAProxy frontend listens on port 80
-- Backend servers use Apache HTTP Server
-- Load balancing method:
-  roundrobin
+- HAProxy frontend listens on:
+  - Port 80
+  - Port 443
 
-Suggested export filename:
+- Load balancing algorithm:
+  - roundrobin
 
-```text
-haproxy-topology.png
+- Backend services:
+  - Apache HTTP Server
+  - PHP application hosting
+
+- Shared storage provided by:
+  - NFS server
+
+Validation Commands:
+
+```bash
+systemctl status haproxy
+haproxy -c -f /etc/haproxy/haproxy.cfg
+curl http://192.168.100.30
+ss -tulpn | grep haproxy
+```
+---
+
+Screenshot Reference:
+
+
+![HAProxy Backend Validation](../screenshots/haproxy-backend-validation.png)
+
+
