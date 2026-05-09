@@ -1,33 +1,328 @@
-# Application Troubleshooting
+# application-troubleshooting.md
 
-## Purpose
+# Application Troubleshooting Cheat Sheet
 
-Application Troubleshooting is a quick-reference guide for incident response on Linux systems. Troubleshooting is a disciplined loop: define the symptom, collect evidence, form a hypothesis, test one variable, and document the result. Skipping steps feels faster but often extends outages.
+## Overview
 
-## Data To Collect
+This document provides a practical enterprise Linux administration cheat sheet for application troubleshooting, service diagnostics, dependency validation, log investigation, process analysis, and operational recovery on Red Hat Enterprise Linux (RHEL) 9.6 systems.
 
-| Command | Typical use |
+The commands and workflows included are commonly used during enterprise incident response, production outage investigations, service restoration, infrastructure troubleshooting, and application performance analysis activities.
+
+This reference is designed for fast operational lookup during production Linux administration tasks.
+
+---
+
+## Environment Information
+
+| Component | Details |
 |---|---|
-| `pwd` | Inspect, configure, or validate the filesystem area in a repeatable way. |
-| `ls -lah /etc` | Inspect, configure, or validate the filesystem area in a repeatable way. |
-| `find /var/log -maxdepth 1 -type f` | Inspect, configure, or validate the filesystem area in a repeatable way. |
-| `df -hT` | Inspect, configure, or validate the filesystem area in a repeatable way. |
-| `du -sh /var/log/* \| sort -h` | Inspect, configure, or validate the filesystem area in a repeatable way. |
+| Operating System | RHEL 9.6 |
+| Hostname | rhel01.lab.local |
+| Init System | systemd |
+| Logging Service | rsyslog / journald |
+| SELinux Mode | Enforcing |
+| Monitoring Utilities | procps-ng / sysstat |
+| User Context | root / sudo administrator |
+| Lab Platform | VMware Enterprise Lab |
 
-## Example Collection
+---
+
+## Common Commands
+
+### Verify Service Status
 
 ```bash
-pwd
-ls -lah /etc
-find /var/log -maxdepth 1 -type f
-df -hT
-du -sh /var/log/* | sort -h
+systemctl status httpd
 ```
 
-## How To Think About Results
+### Restart Application Service
 
-Look for the first failing layer. In a network case, name resolution may fail before routing is relevant. In a filesystem case, an application error may be caused by permissions, SELinux labels, quota, or a read-only remount. In a performance case, check whether the issue is saturation, latency, errors, or external dependency failure.
+```bash
+systemctl restart httpd
+```
 
-## Escalation Notes
+### Review Service Logs
 
-Escalate with evidence instead of conclusions. Include timestamps, hostname, service name, recent changes, commands run, important logs, and impact. If you changed anything, include the exact command and whether it helped. Clear notes reduce repeated work and make root cause analysis possible after service is restored.
+```bash
+journalctl -u httpd
+```
+
+### Display Running Processes
+
+```bash
+ps aux
+```
+
+### Monitor Processes in Real Time
+
+```bash
+top
+```
+
+### Verify Listening Ports
+
+```bash
+ss -tulpn
+```
+
+### Review Recent System Errors
+
+```bash
+journalctl -p err -b
+```
+
+### Verify File Permissions
+
+```bash
+ls -l /var/www/html
+```
+
+### Review SELinux Denials
+
+```bash
+ausearch -m avc -ts recent
+```
+
+### Monitor Resource Usage
+
+```bash
+vmstat 2
+```
+
+### Check Application Binary Dependencies
+
+```bash
+ldd /usr/sbin/httpd
+```
+
+### Review Open Files
+
+```bash
+lsof -p <PID>
+```
+
+---
+
+## Administrative Examples
+
+### Investigate Failed Application Startup
+
+```bash
+systemctl status httpd
+journalctl -u httpd
+```
+
+### Verify Service Port Availability
+
+```bash
+ss -tulpn | grep 80
+```
+
+### Restart Application After Configuration Changes
+
+```bash
+systemctl restart httpd
+```
+
+### Review Real-Time Application Logs
+
+```bash
+tail -f /var/log/httpd/error_log
+```
+
+### Analyze High CPU Usage Process
+
+```bash
+top
+ps aux --sort=-%cpu | head
+```
+
+### Review Application Memory Usage
+
+```bash
+ps aux --sort=-%mem | head
+```
+
+### Verify SELinux Contexts for Web Files
+
+```bash
+ls -Z /var/www/html
+```
+
+### Validate Shared Library Dependencies
+
+```bash
+ldd /usr/sbin/httpd
+```
+
+---
+
+## Validation Commands
+
+### Verify Service Active State
+
+```bash
+systemctl is-active httpd
+```
+
+Example output:
+
+```text
+active
+```
+
+### Validate Listening Network Ports
+
+```bash
+ss -tulpn
+```
+
+### Verify Application Logs
+
+```bash
+journalctl -u httpd
+```
+
+### Validate Process Resource Usage
+
+```bash
+top
+```
+
+### Verify Disk Space Availability
+
+```bash
+df -h
+```
+
+### Validate File Permissions
+
+```bash
+ls -l /var/www/html
+```
+
+### Verify SELinux Status
+
+```bash
+sestatus
+```
+
+### Review Kernel Error Messages
+
+```bash
+dmesg | tail
+```
+
+---
+
+## Troubleshooting Tips
+
+### Service Fails to Start
+
+Review service status:
+
+```bash
+systemctl status httpd
+```
+
+Review logs:
+
+```bash
+journalctl -xe
+```
+
+### Application Port Already in Use
+
+Verify listening ports:
+
+```bash
+ss -tulpn
+```
+
+Identify process using port:
+
+```bash
+lsof -i :80
+```
+
+### High CPU Utilization
+
+Monitor active processes:
+
+```bash
+top
+```
+
+Review CPU-intensive processes:
+
+```bash
+ps aux --sort=-%cpu | head
+```
+
+### Memory Exhaustion
+
+Review memory utilization:
+
+```bash
+free -h
+```
+
+Check OOM activity:
+
+```bash
+dmesg | grep -i oom
+```
+
+### SELinux Blocking Application Access
+
+Review AVC denials:
+
+```bash
+ausearch -m avc -ts recent
+```
+
+Restore contexts:
+
+```bash
+restorecon -Rv /var/www/html
+```
+
+### Missing Library Dependencies
+
+Validate binary dependencies:
+
+```bash
+ldd /usr/sbin/httpd
+```
+
+Install missing package:
+
+```bash
+dnf provides */libexample.so
+```
+
+---
+
+## Operational Notes
+
+- Review logs before restarting production services.
+- Validate application dependencies after updates and deployments.
+- Monitor resource utilization during troubleshooting activities.
+- Use SELinux audit logs during access-related investigations.
+- Validate firewall and network connectivity during service outages.
+- Document recurring incidents for operational analysis.
+- Maintain baseline performance metrics for enterprise applications.
+
+Example operational audit commands:
+
+```bash
+systemctl status httpd
+journalctl -p err -b
+ss -tulpn
+```
+
+---
+
+## Screenshot Reference
+
+![Validation Screenshot](../screenshots/application-troubleshooting.png)
