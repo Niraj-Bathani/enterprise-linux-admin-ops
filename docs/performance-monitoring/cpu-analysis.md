@@ -1,31 +1,315 @@
-# CPU Analysis
+# cpu-analysis.md
 
-## Analysis Goal
+# CPU Analysis and Performance Monitoring Cheat Sheet
 
-CPU Analysis helps administrators distinguish a real bottleneck from normal activity. Performance work should start with user impact: what is slow, since when, for whom, and compared with what baseline? Tools such as `top`, `sar`, `iostat`, and `ss` are most useful when their output is tied to a timeline.
+## Overview
 
-## First Commands
+This document provides a practical enterprise Linux administration cheat sheet for CPU utilization analysis, process monitoring, load investigation, performance troubleshooting, and operational diagnostics on Red Hat Enterprise Linux (RHEL) 9.6 systems.
+
+The commands and workflows included are commonly used during enterprise performance investigations, application bottleneck analysis, capacity planning, infrastructure monitoring, and incident response activities.
+
+This reference is designed for fast operational lookup during production Linux administration tasks.
+
+---
+
+## Environment Information
+
+| Component | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel01.lab.local |
+| Kernel Version | 5.14.x |
+| Monitoring Utilities | procps-ng / sysstat |
+| CPU Architecture | x86_64 |
+| SELinux Mode | Enforcing |
+| User Context | root / sudo administrator |
+| Lab Platform | VMware Enterprise Lab |
+
+---
+
+## Common Commands
+
+### Display CPU Information
+
+```bash
+lscpu
+```
+
+### Display Real-Time CPU Usage
+
+```bash
+top
+```
+
+### Enhanced Interactive Process Monitoring
+
+```bash
+htop
+```
+
+### Display CPU Usage Statistics
+
+```bash
+mpstat
+```
+
+### Monitor CPU Usage Continuously
+
+```bash
+mpstat 2
+```
+
+### Display System Load Average
 
 ```bash
 uptime
-mpstat 1 5
-free -h
-iostat -xz 1 5
-sar -n DEV 1 5
 ```
 
-## Interpretation
+### Display Per-Core CPU Statistics
 
-High CPU usage is not automatically bad if throughput is healthy. Memory pressure matters when swapping, reclaim, or OOM events appear. Disk latency is often more important than raw throughput. Network problems may appear as retransmits, drops, DNS delay, or blocked ports. Compare current data to normal business hours and recent changes such as deployments, package updates, backups, or batch jobs.
+```bash
+mpstat -P ALL
+```
 
-## Investigation Flow
+### Display Top CPU-Consuming Processes
 
-Start broad with load average, memory, disk, and network counters. Then narrow to a process, device, mount point, socket, or time window. Use `journalctl` and application logs to connect metric spikes with service behavior. Avoid tuning kernel parameters until you have evidence; many performance incidents are caused by capacity limits, application behavior, or a failing dependency rather than a missing sysctl.
+```bash
+ps aux --sort=-%cpu | head
+```
 
-## Deliverable
+### Monitor Running Processes
 
-End with a short finding: symptom, evidence, suspected cause, mitigation, and monitoring recommendation. Good notes make later incidents faster to resolve.
+```bash
+pidstat 2
+```
 
-## Operator Notes
+### Display Hardware Information
 
-Treat CPU Analysis as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+```bash
+cat /proc/cpuinfo
+```
+
+### Display System Activity Report
+
+```bash
+sar -u 2 5
+```
+
+### Display CPU Temperature Information
+
+```bash
+sensors
+```
+
+---
+
+## Administrative Examples
+
+### Identify High CPU Usage Processes
+
+```bash
+ps aux --sort=-%cpu | head
+```
+
+### Monitor CPU Usage Per Core
+
+```bash
+mpstat -P ALL 2
+```
+
+### Analyze System Load Average
+
+```bash
+uptime
+```
+
+Example output:
+
+```text
+15:22:10 up 4 days,  5:33,  2 users,  load average: 1.12, 0.95, 0.88
+```
+
+### Monitor CPU Usage by Process ID
+
+```bash
+pidstat -p 2451 2
+```
+
+### Display CPU Interrupt Statistics
+
+```bash
+mpstat -I ALL
+```
+
+### Review Historical CPU Utilization
+
+```bash
+sar -u
+```
+
+### Monitor Apache CPU Consumption
+
+```bash
+top -p $(pgrep -d',' httpd)
+```
+
+### Capture Performance Snapshot
+
+```bash
+top -b -n1 > cpu-report.txt
+```
+
+---
+
+## Validation Commands
+
+### Verify CPU Architecture
+
+```bash
+arch
+```
+
+### Validate Number of CPU Cores
+
+```bash
+nproc
+```
+
+### Verify CPU Frequency Information
+
+```bash
+lscpu | grep MHz
+```
+
+### Validate Current System Load
+
+```bash
+uptime
+```
+
+### Verify Running Processes
+
+```bash
+ps -ef
+```
+
+### Validate CPU Usage History
+
+```bash
+sar -u 1 5
+```
+
+### Verify Kernel CPU Information
+
+```bash
+cat /proc/stat
+```
+
+### Review System Performance Logs
+
+```bash
+journalctl -xe
+```
+
+---
+
+## Troubleshooting Tips
+
+### High CPU Utilization
+
+Identify top resource-consuming processes:
+
+```bash
+ps aux --sort=-%cpu | head
+```
+
+Monitor in real time:
+
+```bash
+top
+```
+
+### Excessive Load Average
+
+Verify load statistics:
+
+```bash
+uptime
+```
+
+Review process activity:
+
+```bash
+pidstat
+```
+
+### CPU Saturation Across Multiple Cores
+
+Analyze per-core utilization:
+
+```bash
+mpstat -P ALL
+```
+
+### Runaway or Stuck Processes
+
+Identify problematic processes:
+
+```bash
+top
+```
+
+Terminate process if necessary:
+
+```bash
+kill -9 PID
+```
+
+### Performance Degradation During Peak Hours
+
+Capture historical performance data:
+
+```bash
+sar -u
+```
+
+### Hardware or Thermal Issues
+
+Check CPU temperatures:
+
+```bash
+sensors
+```
+
+Review kernel messages:
+
+```bash
+dmesg | tail
+```
+
+---
+
+## Operational Notes
+
+- Monitor CPU utilization regularly during enterprise maintenance windows.
+- Investigate abnormal load averages before production impact occurs.
+- Use historical monitoring tools for trend analysis and capacity planning.
+- Validate process behavior during application troubleshooting activities.
+- Monitor CPU saturation across all available cores.
+- Maintain performance baselines for enterprise infrastructure systems.
+- Review system logs during CPU-related incident investigations.
+
+Example operational audit commands:
+
+```bash
+mpstat -P ALL
+sar -u 1 5
+ps aux --sort=-%cpu | head
+```
+
+---
+
+## Screenshot Reference
+
+![Validation Screenshot](../screenshots/cpu-analysis.png)
+
