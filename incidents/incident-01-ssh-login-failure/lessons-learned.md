@@ -1,24 +1,178 @@
-# Lessons Learned
+# Incident 01 — SSH Login Failure
 
-## What Went Well
+## Overview
 
-The responder collected logs before making broad changes, focused on the failing layer, and restored service with a targeted action. This reduced risk and preserved evidence for root cause analysis.
+This document captures the operational lessons identified during the investigation and recovery of the SSH authentication failure on `rhel9-app01.prod.corp.local`.
 
-## What Could Improve
+The objective is to improve authentication management, operational visibility, and recovery readiness across the enterprise Linux infrastructure.
 
-The team needed clearer validation steps for `sshd`. A process being active was not enough evidence that users could complete their workflow. The runbook should show exact commands, expected output, and common log patterns.
+---
 
-## Follow Up Tasks
+# Incident Summary
 
-- Update the runbook with the log pattern: `sshd[2241]: Authentication refused: bad ownership or modes for directory /home/admin`.
-- Add a functional monitoring check that matches the user-visible path.
-- Review recent changes for similar risk on peer systems.
-- Practice the diagnosis in a lab VM so junior administrators can recognize the pattern.
+| Item | Details |
+|---|---|
+| Incident ID | INC-RHEL-SSH-2026-001 |
+| Environment | Production |
+| Affected Service | sshd |
+| Platform | RHEL 9.6 |
+| Duration | 27 Minutes |
+| Status | Resolved |
 
-## Takeaway
+---
 
-The main lesson is that incidents are solved by evidence. A small amount of disciplined collection at the beginning makes the fix faster, the root cause clearer, and the prevention work more realistic.
+# Key Lessons Identified
 
-## Operator Notes
+## Authentication Policy Changes Require Validation
 
-Treat Lessons Learned as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+The incident highlighted the operational risk associated with modifying SSSD authorization policies without validating all required administrator groups.
+
+Access policy updates must always include:
+
+- verification of enterprise RBAC mappings
+- administrator access validation
+- automation account testing
+- rollback verification procedures
+
+---
+
+## Successful LDAP Resolution Does Not Confirm Authorization
+
+The investigation confirmed that successful LDAP identity resolution alone does not guarantee successful SSH authentication.
+
+The following components must all function correctly:
+
+- LDAP identity resolution
+- PAM account validation
+- SSSD authorization policies
+- SSH access controls
+
+Operational validation must include both authentication and authorization testing.
+
+---
+
+## Monitoring Detected the Issue Quickly
+
+Existing monitoring controls successfully identified abnormal SSH authentication failure rates.
+
+The following monitoring systems proved effective:
+
+- journald authentication alerts
+- Ansible job failure notifications
+- SSH authentication failure metrics
+- Linux operations escalation procedures
+
+Early detection reduced overall recovery duration.
+
+---
+
+## Centralized Authentication Dependencies Increase Operational Risk
+
+Production servers dependent on centralized authentication services require additional validation controls.
+
+Operational teams should ensure:
+
+- RBAC policy consistency
+- staged authentication testing
+- access control auditing
+- documented recovery procedures
+
+Authentication infrastructure changes should follow formal change validation workflows.
+
+---
+
+## Minimal Recovery Scope Reduced Risk
+
+The recovery process focused strictly on correcting the authorization policy configuration.
+
+The following high-risk actions were intentionally avoided:
+
+- disabling SELinux
+- bypassing PAM authentication
+- modifying firewall policies
+- restarting unrelated services
+
+Limiting operational changes reduced recovery risk and preserved platform stability.
+
+---
+
+# Operational Improvements
+
+The following operational improvements were identified after the incident:
+
+| Improvement Area | Action |
+|---|---|
+| Authentication Validation | Add automated SSH login validation checks |
+| Change Management | Require peer review for SSSD policy modifications |
+| Monitoring | Expand authentication alert coverage |
+| Documentation | Maintain standardized SSH recovery procedures |
+| Automation | Validate administrator RBAC mappings during deployment |
+
+---
+
+# Recommendations
+
+## Standardize Authentication Validation
+
+All authentication-related changes should include:
+
+```bash
+sssctl config-check
+id <username>
+ssh <user>@<host>
+```
+
+Validation procedures must confirm both identity resolution and successful SSH access.
+
+---
+
+## Implement Post-Change Access Testing
+
+Operational teams should perform post-change validation immediately after modifying:
+
+- SSSD configuration
+- PAM configuration
+- SSH access policies
+- LDAP group mappings
+
+Testing should include administrator and automation accounts.
+
+---
+
+## Improve Authentication Monitoring
+
+Additional monitoring should be implemented for:
+
+- repeated PAM authorization failures
+- SSSD access denial events
+- failed automation authentication attempts
+- abnormal SSH rejection rates
+
+Early visibility reduces operational impact during authentication incidents.
+
+---
+
+# Operational Takeaways
+
+- Authentication authorization failures can appear similar to standard credential issues
+- PAM and SSSD logs provide critical diagnostic visibility
+- Centralized authentication dependencies require strict validation controls
+- Recovery actions should remain narrowly scoped during production incidents
+- Enterprise RBAC changes require operational verification before deployment
+
+---
+
+# Follow-Up Actions
+
+| Action | Owner | Status |
+|---|---|---|
+| Review SSSD group mappings | Linux Operations | Completed |
+| Update SSH recovery runbook | Platform Engineering | In Progress |
+| Implement authentication validation checks | Automation Team | Planned |
+| Expand PAM monitoring alerts | Monitoring Team | Planned |
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/incident-01-lessons-learned.png)
