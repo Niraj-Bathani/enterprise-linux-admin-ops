@@ -1,29 +1,331 @@
-# SSH Hardening
+# ssh-hardening.md
 
-## Security Goal
+# SSH Hardening and Secure Remote Access Cheat Sheet
 
-SSH Hardening reduces the attack surface or improves detection on enterprise Linux systems. Hardening should be measured, documented, and reversible. A server that is locked down without operational understanding can become fragile, so pair every restriction with a validation test and a recovery path.
+## Overview
 
-## Baseline Checks
+This document provides a practical enterprise Linux administration cheat sheet for SSH hardening, secure remote access configuration, authentication security, access restriction policies, and troubleshooting operations on Red Hat Enterprise Linux (RHEL) 9.6 systems.
+
+The commands and workflows included are commonly used during enterprise security hardening, remote administration protection, compliance validation, infrastructure security reviews, and operational maintenance activities.
+
+This reference is designed for fast operational lookup during production Linux administration tasks.
+
+---
+
+## Environment Information
+
+| Component | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel01.lab.local |
+| SSH Service | OpenSSH Server |
+| SSH Configuration File | /etc/ssh/sshd_config |
+| Default SSH Port | 22 |
+| SELinux Mode | Enforcing |
+| User Context | root / sudo administrator |
+| Lab Platform | VMware Enterprise Lab |
+
+---
+
+## Common Commands
+
+### Verify SSH Service Status
 
 ```bash
-getenforce
-ausearch -m AVC -ts recent
-semanage port -l | grep ssh
-auditctl -s
-lynis audit system
+systemctl status sshd
 ```
 
-Check the current package version, service state, configuration file, SELinux mode, firewall exposure, and logs. On RHEL compatible systems, security features often work together: SSH policy may be correct while firewalld blocks the port, or a daemon may be listening while SELinux prevents file access.
+### Enable SSH Service at Boot
 
-## Implementation Notes
+```bash
+systemctl enable sshd
+```
 
-Apply one control at a time. For SSH, test a second login before closing the current session. For auditd, confirm rules are loaded and searchable. For log rotation, force a test rotation against noncritical logs. For central logging, send a `logger` message and confirm it arrives with the expected hostname and facility.
+### Restart SSH Service
 
-## Validation And Maintenance
+```bash
+systemctl restart sshd
+```
 
-Security controls drift as packages, users, and applications change. Schedule periodic reviews with `journalctl`, `ausearch`, `firewall-cmd`, and configuration management reports. Record exceptions with owner, date, reason, and expiration. The best hardening standard is one that future administrators can understand quickly during an outage.
+### Validate SSH Configuration Syntax
 
-## Operator Notes
+```bash
+sshd -t
+```
 
-Treat SSH Hardening as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+### Review Active SSH Connections
+
+```bash
+ss -tnp | grep sshd
+```
+
+### Display SSH Listening Ports
+
+```bash
+ss -tulpn | grep ssh
+```
+
+### Review SSH Authentication Logs
+
+```bash
+journalctl -u sshd
+```
+
+### Edit SSH Configuration
+
+```bash
+vim /etc/ssh/sshd_config
+```
+
+### Generate SSH Key Pair
+
+```bash
+ssh-keygen -t ed25519
+```
+
+### Copy SSH Public Key to Remote Host
+
+```bash
+ssh-copy-id admin@192.168.10.20
+```
+
+### Verify SELinux SSH Port Contexts
+
+```bash
+semanage port -l | grep ssh
+```
+
+### Configure Firewall for SSH
+
+```bash
+firewall-cmd --permanent --add-service=ssh
+```
+
+---
+
+## Administrative Examples
+
+### Disable Root SSH Login
+
+Edit SSH configuration:
+
+```bash
+vim /etc/ssh/sshd_config
+```
+
+Example configuration:
+
+```conf
+PermitRootLogin no
+```
+
+### Disable Password Authentication
+
+```conf
+PasswordAuthentication no
+PubkeyAuthentication yes
+```
+
+### Configure Custom SSH Port
+
+```conf
+Port 2222
+```
+
+### Add SELinux Context for Custom SSH Port
+
+```bash
+semanage port -a -t ssh_port_t -p tcp 2222
+```
+
+### Allow Custom SSH Port in Firewall
+
+```bash
+firewall-cmd --permanent --add-port=2222/tcp
+firewall-cmd --reload
+```
+
+### Validate SSH Configuration Before Restart
+
+```bash
+sshd -t
+```
+
+### Restart SSH Service Safely
+
+```bash
+systemctl restart sshd
+```
+
+### Monitor Failed SSH Login Attempts
+
+```bash
+journalctl -u sshd | grep Failed
+```
+
+---
+
+## Validation Commands
+
+### Verify SSH Service State
+
+```bash
+systemctl is-active sshd
+```
+
+Example output:
+
+```text
+active
+```
+
+### Validate SSH Configuration Syntax
+
+```bash
+sshd -t
+```
+
+### Verify SSH Listening Port
+
+```bash
+ss -tulpn | grep ssh
+```
+
+### Validate Firewall Rules
+
+```bash
+firewall-cmd --list-all
+```
+
+### Verify SELinux SSH Port Configuration
+
+```bash
+semanage port -l | grep ssh
+```
+
+### Review Authentication Attempts
+
+```bash
+journalctl -u sshd
+```
+
+### Validate Active SSH Sessions
+
+```bash
+who
+```
+
+### Verify SSH Key Authentication
+
+```bash
+ssh -i ~/.ssh/id_ed25519 admin@192.168.10.20
+```
+
+---
+
+## Troubleshooting Tips
+
+### SSH Service Fails to Start
+
+Validate configuration syntax:
+
+```bash
+sshd -t
+```
+
+Review service logs:
+
+```bash
+journalctl -xe
+```
+
+### SSH Connection Refused
+
+Verify listening ports:
+
+```bash
+ss -tulpn | grep ssh
+```
+
+Verify firewall rules:
+
+```bash
+firewall-cmd --list-all
+```
+
+### Authentication Failures
+
+Review SSH logs:
+
+```bash
+journalctl -u sshd
+```
+
+Verify SSH key permissions:
+
+```bash
+chmod 600 ~/.ssh/authorized_keys
+```
+
+### SELinux Blocking Custom SSH Port
+
+Verify SELinux port contexts:
+
+```bash
+semanage port -l | grep ssh
+```
+
+Add correct context:
+
+```bash
+semanage port -a -t ssh_port_t -p tcp 2222
+```
+
+### Firewall Blocking SSH Access
+
+Allow SSH service:
+
+```bash
+firewall-cmd --permanent --add-service=ssh
+firewall-cmd --reload
+```
+
+### Excessive Failed Login Attempts
+
+Monitor authentication failures:
+
+```bash
+journalctl -u sshd | grep Failed
+```
+
+Review Fail2Ban integration:
+
+```bash
+fail2ban-client status sshd
+```
+
+---
+
+## Operational Notes
+
+- Disable root SSH login in enterprise environments.
+- Use SSH key authentication instead of passwords whenever possible.
+- Validate SSH configuration changes before restarting services.
+- Monitor authentication logs regularly during security reviews.
+- Configure firewall and SELinux rules consistently.
+- Review active SSH sessions during incident investigations.
+- Maintain backup access methods before modifying production SSH configurations.
+
+Example operational audit commands:
+
+```bash
+sshd -t
+journalctl -u sshd
+ss -tulpn | grep ssh
+```
+
+---
+
+## Screenshot Reference
+
+![Validation Screenshot](../screenshots/ssh-hardening.png)
