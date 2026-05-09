@@ -1,29 +1,322 @@
-# Fail2ban
+# fail2ban.md
 
-## Security Goal
+# Fail2Ban Security Hardening Commands Cheat Sheet
 
-Fail2ban reduces the attack surface or improves detection on enterprise Linux systems. Hardening should be measured, documented, and reversible. A server that is locked down without operational understanding can become fragile, so pair every restriction with a validation test and a recovery path.
+## Overview
 
-## Baseline Checks
+This document provides a practical enterprise Linux administration cheat sheet for Fail2Ban configuration, intrusion prevention, SSH brute-force protection, log monitoring, firewall integration, and troubleshooting operations on Red Hat Enterprise Linux (RHEL) 9.6 systems.
+
+The commands and workflows included are commonly used during enterprise security hardening, automated threat mitigation, authentication protection, incident response, and infrastructure defense activities.
+
+This reference is designed for fast operational lookup during production Linux administration tasks.
+
+---
+
+## Environment Information
+
+| Component | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel01.lab.local |
+| Intrusion Prevention | Fail2Ban |
+| Default Jail | sshd |
+| Firewall Backend | firewalld |
+| SELinux Mode | Enforcing |
+| User Context | root / sudo administrator |
+| Lab Platform | VMware Enterprise Lab |
+
+---
+
+## Common Commands
+
+### Install Fail2Ban
 
 ```bash
-getenforce
-ausearch -m AVC -ts recent
-semanage port -l | grep ssh
-auditctl -s
-lynis audit system
+dnf install -y epel-release fail2ban
 ```
 
-Check the current package version, service state, configuration file, SELinux mode, firewall exposure, and logs. On RHEL compatible systems, security features often work together: SSH policy may be correct while firewalld blocks the port, or a daemon may be listening while SELinux prevents file access.
+### Start Fail2Ban Service
 
-## Implementation Notes
+```bash
+systemctl start fail2ban
+```
 
-Apply one control at a time. For SSH, test a second login before closing the current session. For auditd, confirm rules are loaded and searchable. For log rotation, force a test rotation against noncritical logs. For central logging, send a `logger` message and confirm it arrives with the expected hostname and facility.
+### Enable Fail2Ban at Boot
 
-## Validation And Maintenance
+```bash
+systemctl enable fail2ban
+```
 
-Security controls drift as packages, users, and applications change. Schedule periodic reviews with `journalctl`, `ausearch`, `firewall-cmd`, and configuration management reports. Record exceptions with owner, date, reason, and expiration. The best hardening standard is one that future administrators can understand quickly during an outage.
+### Verify Fail2Ban Service Status
 
-## Operator Notes
+```bash
+systemctl status fail2ban
+```
 
-Treat Fail2ban as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+### Display Active Jails
+
+```bash
+fail2ban-client status
+```
+
+### Display SSH Jail Status
+
+```bash
+fail2ban-client status sshd
+```
+
+### Unban IP Address
+
+```bash
+fail2ban-client set sshd unbanip 192.168.10.50
+```
+
+### View Fail2Ban Logs
+
+```bash
+journalctl -u fail2ban
+```
+
+### Edit Jail Configuration
+
+```bash
+vim /etc/fail2ban/jail.local
+```
+
+### Restart Fail2Ban Service
+
+```bash
+systemctl restart fail2ban
+```
+
+### Validate Firewall Rules
+
+```bash
+firewall-cmd --list-all
+```
+
+### Review Authentication Logs
+
+```bash
+journalctl -u sshd
+```
+
+---
+
+## Administrative Examples
+
+### Install and Enable Fail2Ban
+
+```bash
+dnf install -y epel-release fail2ban
+systemctl enable --now fail2ban
+```
+
+### Configure SSH Protection Jail
+
+Edit jail configuration:
+
+```bash
+vim /etc/fail2ban/jail.local
+```
+
+Example configuration:
+
+```ini
+[sshd]
+enabled = true
+port = ssh
+maxretry = 5
+findtime = 10m
+bantime = 1h
+```
+
+### Restart Fail2Ban After Configuration Changes
+
+```bash
+systemctl restart fail2ban
+```
+
+### Verify Active Banned IPs
+
+```bash
+fail2ban-client status sshd
+```
+
+### Unban Trusted Administrative IP
+
+```bash
+fail2ban-client set sshd unbanip 192.168.10.50
+```
+
+### Monitor Failed SSH Attempts
+
+```bash
+journalctl -u sshd | grep Failed
+```
+
+### Review Fail2Ban Log Activity
+
+```bash
+tail -f /var/log/fail2ban.log
+```
+
+---
+
+## Validation Commands
+
+### Verify Fail2Ban Service State
+
+```bash
+systemctl is-active fail2ban
+```
+
+Example output:
+
+```text
+active
+```
+
+### Validate Active Jails
+
+```bash
+fail2ban-client status
+```
+
+### Verify SSH Jail Configuration
+
+```bash
+fail2ban-client status sshd
+```
+
+### Validate Authentication Failures
+
+```bash
+journalctl -u sshd
+```
+
+### Verify Firewall Ban Rules
+
+```bash
+firewall-cmd --list-all
+```
+
+### Review Fail2Ban Logs
+
+```bash
+journalctl -u fail2ban
+```
+
+### Validate SELinux Contexts
+
+```bash
+ls -Z /etc/fail2ban
+```
+
+### Verify Listening SSH Port
+
+```bash
+ss -tulpn | grep sshd
+```
+
+---
+
+## Troubleshooting Tips
+
+### Fail2Ban Service Fails to Start
+
+Verify service status:
+
+```bash
+systemctl status fail2ban
+```
+
+Review logs:
+
+```bash
+journalctl -xe
+```
+
+### SSH Jail Not Detecting Failed Logins
+
+Verify SSH logs:
+
+```bash
+journalctl -u sshd
+```
+
+Review jail configuration:
+
+```bash
+cat /etc/fail2ban/jail.local
+```
+
+### IP Address Not Being Banned
+
+Verify jail activity:
+
+```bash
+fail2ban-client status sshd
+```
+
+Check firewall backend integration:
+
+```bash
+firewall-cmd --list-all
+```
+
+### Legitimate User Accidentally Banned
+
+Unban IP address:
+
+```bash
+fail2ban-client set sshd unbanip 192.168.10.50
+```
+
+### SELinux Restricting Fail2Ban
+
+Review SELinux denials:
+
+```bash
+ausearch -m avc -ts recent
+```
+
+Restore contexts:
+
+```bash
+restorecon -Rv /etc/fail2ban
+```
+
+### Excessive Authentication Failures
+
+Monitor SSH activity:
+
+```bash
+journalctl -u sshd | grep Failed
+```
+
+---
+
+## Operational Notes
+
+- Use Fail2Ban for automated protection against brute-force attacks.
+- Monitor authentication logs regularly during security reviews.
+- Configure appropriate ban intervals for enterprise environments.
+- Validate firewall integration after Fail2Ban deployments.
+- Review active bans during incident investigations.
+- Maintain backup copies of jail configurations before modifications.
+- Monitor SELinux logs during security hardening activities.
+
+Example operational audit commands:
+
+```bash
+fail2ban-client status
+journalctl -u fail2ban
+journalctl -u sshd | grep Failed
+```
+
+---
+
+## Screenshot Reference
+
+![Validation Screenshot](../screenshots/fail2ban.png)
