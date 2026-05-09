@@ -278,4 +278,4 @@ The evidence indicated an authentication authorization policy issue rather than 
 ---
 # Screenshot Reference
 
-![SSH Login Failure Diagnosis](../screenshots/incident-01-diagnosis.png)
+![SSH Login Failure Diagnosis](../../screenshots/incident-01-diagnosis.png)
