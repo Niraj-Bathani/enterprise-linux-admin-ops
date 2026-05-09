@@ -1,35 +1,332 @@
-# Post Install Hardening
+# post-install-hardening.md
 
-## Scope
+# Post-Install Hardening Cheat Sheet
 
-This setup guide prepares a controlled enterprise Linux lab. The recommended environment is two or more virtual machines: one administration workstation, one server under test, and optional client nodes for network, NFS, SSH, and web service exercises. Keep snapshots before major storage, firewall, boot, or identity changes. Use RHEL 8 or RHEL 9 when possible; compatible rebuilds are acceptable for practice if subscription management commands are adjusted.
+## Overview
 
-## Planning Checklist
+This document provides a practical enterprise Linux administration cheat sheet for post-installation hardening, security baseline configuration, access control validation, system protection, and operational security tasks on Red Hat Enterprise Linux (RHEL) 9.6 systems.
 
-| Item | Recommendation |
+The commands and workflows included are commonly used during enterprise server provisioning, compliance preparation, infrastructure hardening, audit readiness, and operational maintenance activities.
+
+This reference is designed for fast operational lookup during production Linux administration tasks.
+
+---
+
+## Environment Information
+
+| Component | Details |
 |---|---|
-| CPU and memory | 2 vCPU and 4 GB RAM per VM for normal labs |
-| Disk | 40 GB system disk plus optional extra virtual disks |
-| Network | One NAT adapter for internet, one host-only lab network |
-| Access | Console access plus SSH after hardening is validated |
-| Snapshots | Take a clean baseline after package updates |
+| Operating System | RHEL 9.6 |
+| Hostname | rhel01.lab.local |
+| Security Framework | SELinux |
+| Firewall Service | firewalld |
+| Logging Service | rsyslog |
+| Authentication | OpenSSH |
+| User Context | root / sudo administrator |
+| Lab Platform | VMware Enterprise Lab |
 
-## Procedure
+---
+
+## Common Commands
+
+### Update Installed Packages
+
+```bash
+dnf update -y
+```
+
+### Verify SELinux Status
+
+```bash
+sestatus
+```
+
+### Enable Firewall Service
+
+```bash
+systemctl enable --now firewalld
+```
+
+### Display Active Firewall Rules
+
+```bash
+firewall-cmd --list-all
+```
+
+### Disable Root SSH Login
+
+```bash
+vim /etc/ssh/sshd_config
+```
+
+### Restart SSH Service
+
+```bash
+systemctl restart sshd
+```
+
+### Review Active Services
+
+```bash
+systemctl list-units --type=service --state=running
+```
+
+### Remove Unnecessary Packages
+
+```bash
+dnf remove telnet ftp
+```
+
+### Verify Listening Network Ports
+
+```bash
+ss -tulpn
+```
+
+### Install Security Audit Tools
+
+```bash
+dnf install -y lynis audit
+```
+
+### Enable Auditd Service
+
+```bash
+systemctl enable --now auditd
+```
+
+### Review Authentication Logs
+
+```bash
+journalctl -u sshd
+```
+
+---
+
+## Administrative Examples
+
+### Apply System Updates
+
+```bash
+dnf update -y
+```
+
+### Configure SELinux Enforcing Mode
+
+```bash
+setenforce 1
+```
+
+Persistent configuration:
+
+```conf
+SELINUX=enforcing
+```
+
+### Harden SSH Configuration
+
+Edit SSH daemon configuration:
+
+```bash
+vim /etc/ssh/sshd_config
+```
+
+Recommended settings:
+
+```conf
+PermitRootLogin no
+PasswordAuthentication no
+Protocol 2
+```
+
+### Configure Firewall Rules
+
+```bash
+firewall-cmd --permanent --add-service=ssh
+firewall-cmd --reload
+```
+
+### Remove Legacy Insecure Services
+
+```bash
+dnf remove telnet-server rsh-server ypbind
+```
+
+### Install Security Auditing Tools
+
+```bash
+dnf install -y lynis fail2ban audit
+```
+
+### Verify Running Services
+
+```bash
+systemctl list-units --type=service --state=running
+```
+
+### Review Open Network Ports
+
+```bash
+ss -tulpn
+```
+
+---
+
+## Validation Commands
+
+### Verify SELinux Mode
 
 ```bash
 getenforce
-ausearch -m AVC -ts recent
-semanage port -l | grep ssh
-auditctl -s
+```
+
+Example output:
+
+```text
+Enforcing
+```
+
+### Validate Firewall Status
+
+```bash
+systemctl status firewalld
+```
+
+### Verify Active Firewall Rules
+
+```bash
+firewall-cmd --list-all
+```
+
+### Validate SSH Configuration Syntax
+
+```bash
+sshd -t
+```
+
+### Verify Auditd Service State
+
+```bash
+systemctl status auditd
+```
+
+### Review Listening Network Ports
+
+```bash
+ss -tulpn
+```
+
+### Validate Installed Security Packages
+
+```bash
+rpm -qa | grep -E 'audit|lynis|fail2ban'
+```
+
+### Review Authentication and Security Logs
+
+```bash
+journalctl -xe
+```
+
+---
+
+## Troubleshooting Tips
+
+### SSH Access Failures After Hardening
+
+Validate SSH configuration:
+
+```bash
+sshd -t
+```
+
+Review SSH logs:
+
+```bash
+journalctl -u sshd
+```
+
+### Firewall Blocking Required Services
+
+Review active rules:
+
+```bash
+firewall-cmd --list-all
+```
+
+Add missing service:
+
+```bash
+firewall-cmd --permanent --add-service=http
+firewall-cmd --reload
+```
+
+### SELinux Access Denials
+
+Review AVC denials:
+
+```bash
+ausearch -m avc -ts recent
+```
+
+Generate troubleshooting report:
+
+```bash
+sealert -a /var/log/audit/audit.log
+```
+
+### Unnecessary Services Running
+
+Review active services:
+
+```bash
+systemctl list-units --type=service --state=running
+```
+
+Disable unused service:
+
+```bash
+systemctl disable --now cups
+```
+
+### Excessive Open Ports
+
+Review listening ports:
+
+```bash
+ss -tulpn
+```
+
+### Security Audit Warnings
+
+Run Lynis security scan:
+
+```bash
 lynis audit system
 ```
 
-Start with a minimal install plus standard administration tools. Configure a predictable hostname, confirm DNS resolution, update packages, and enable only the services required for the current module. Document IP addresses, interface names, disk names, and credentials in a private lab note rather than in the repository.
+---
 
-## Verification
+## Operational Notes
 
-Confirm that `systemctl is-system-running` reports a healthy or degraded state you understand. Check `ip addr`, `ip route`, `timedatectl`, `dnf repolist`, and `getenforce`. A setup is not complete until you can reboot, reconnect, install a package, and resolve names from both the server and client perspectives.
+- Apply security hardening immediately after enterprise deployments.
+- Keep SELinux enabled in enforcing mode.
+- Disable unused services and remove legacy packages.
+- Restrict SSH access using keys and hardened configurations.
+- Review open ports and firewall rules regularly.
+- Integrate auditd and centralized logging into enterprise monitoring.
+- Validate system hardening after updates and configuration changes.
 
-## Operator Notes
+Example operational audit commands:
 
-Treat Post Install Hardening as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+```bash
+sestatus
+firewall-cmd --list-all
+ss -tulpn
+```
+
+---
+
+## Screenshot Reference
+
+![Validation Screenshot](../screenshots/post-install-hardening.p
