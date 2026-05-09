@@ -1,27 +1,164 @@
-# Issue Report
+# Incident 03 — DNS Resolution Failure
 
-## Summary
+## Executive Summary
 
-Applications fail with name resolution errors while IP connectivity works. The issue was reported by the operations team during a normal support window and affected a production-like Linux service managed by `NetworkManager`. Initial impact was limited, but the symptom had the potential to block administrative response or customer traffic if left unresolved.
+A production DNS resolution failure affected application connectivity and infrastructure operations on `rhel9-app02.prod.corp.local`.
 
-## Impact
+The incident prevented successful hostname resolution due to missing routing information required to reach enterprise DNS servers. The issue impacted application communication, package management operations, and automation workflows.
 
-Affected users experienced failed access attempts, delayed work, and repeated retries. The service owner confirmed that no planned maintenance was in progress. The first responder opened a bridge, preserved logs, and avoided restarting unrelated services until evidence was collected.
+Service functionality was restored after correcting the network routing configuration and validating DNS connectivity.
 
-## Observed Evidence
+---
+
+# Incident Details
+
+| Item | Details |
+|---|---|
+| Incident ID | INC-DNS-2026-003 |
+| Severity | SEV-2 |
+| Environment | Production |
+| Affected Host | rhel9-app02.prod.corp.local |
+| Operating System | RHEL 9.6 |
+| Service Impacted | DNS Resolution |
+| Detection Time | 2026-05-16 11:22 UTC |
+| Resolution Time | 2026-05-16 11:47 UTC |
+| Total Duration | 25 Minutes |
+| Status | Resolved |
+
+---
+
+# Affected Services
+
+The following operational services were impacted during the incident:
+
+- Enterprise DNS resolution
+- Internal application communication
+- Package repository connectivity
+- Infrastructure automation workflows
+- Hostname-based service validation
+
+No operating system instability occurred during the outage.
+
+---
+
+# Detection Method
+
+The incident was detected through:
+
+- DNS resolution monitoring alerts
+- Failed package repository checks
+- Application communication alarms
+- Linux operations escalation procedures
+
+Monitoring alert example:
 
 ```text
-systemd-resolved: DNSSEC validation failed for internal zone
+ALERT: DNSResolutionFailure
+Host: rhel9-app02.prod.corp.local
+Severity: critical
 ```
 
-## Initial Actions
+---
 
-The responder captured `systemctl status NetworkManager`, relevant `journalctl` output, network or filesystem state, and recent change records. The case was handled as an operations incident, meaning restoration came first, while root cause notes were preserved for later review.
+# User Impact
 
-## Operator Notes
+Operational impact during the incident included:
 
-Treat Issue Report as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+- Failed hostname resolution requests
+- Application communication timeouts
+- Package management failures
+- Interrupted automation workflows
+- Increased operational troubleshooting activity
 
-## Validation Habit
+IP-based connectivity remained operational throughout the incident.
 
-A good administrator validates from two directions: the local system state and the client experience. Do not only check that a daemon is active; also test the socket, review the log, and confirm that persistence survives a reboot. This habit prevents temporary fixes from being mistaken for durable operations. Keep commands readable, prefer documented configuration files, and avoid destructive shortcuts unless a backup and rollback plan are already written.
+---
+
+# Timeline
+
+| Time (UTC) | Event |
+|---|---|
+| 11:22 | DNS resolution monitoring alerts triggered |
+| 11:24 | Linux operations team acknowledged incident |
+| 11:27 | Initial network and resolver diagnostics completed |
+| 11:31 | Missing DNS subnet route identified |
+| 11:35 | Static route configuration updated |
+| 11:38 | Network connection restarted successfully |
+| 11:42 | DNS resolution validation passed |
+| 11:47 | Automation and repository connectivity restored |
+
+---
+
+# Technical Findings
+
+Investigation identified the following conditions:
+
+- Basic network connectivity remained operational
+- DNS servers were unreachable from the affected host
+- Resolver configuration remained correct
+- DNS queries timed out
+- NetworkManager reported routing update failures
+- No SELinux or firewall issues were identified
+
+Relevant validation output:
+
+```text
+;; communications error to 10.40.10.53#53: timed out
+;; no servers could be reached
+```
+
+---
+
+# Root Cause Summary
+
+The outage was caused by missing routing information for the enterprise DNS server subnet.
+
+The affected system lacked a valid route to `10.40.10.0/24`, preventing communication with configured DNS servers.
+
+As a result:
+
+- DNS queries failed
+- hostname resolution became unavailable
+- application communication was interrupted
+- infrastructure automation workflows failed
+
+---
+
+# Recovery Actions
+
+The following recovery actions were completed:
+
+- Backed up network routing configuration
+- Added static route for the DNS subnet
+- Restarted the network connection
+- Validated DNS server connectivity
+- Verified hostname resolution functionality
+- Confirmed package repository access
+- Restored automation connectivity
+
+---
+
+# Validation Results
+
+| Validation Item | Result |
+|---|---|
+| DNS server reachable | PASS |
+| Hostname resolution restored | PASS |
+| Repository connectivity restored | PASS |
+| Network routing restored | PASS |
+| Ansible connectivity restored | PASS |
+
+---
+
+# Operational Notes
+
+- Resolver configuration remained unchanged during recovery
+- SELinux remained enabled throughout remediation activities
+- No firewall modifications were required
+- Recovery activities were limited to routing configuration correction
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/incident-03-issue-report.png)
