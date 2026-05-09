@@ -1,37 +1,325 @@
-# Firewall Troubleshooting
+# firewall-troubleshooting.md
 
-## Purpose
+# Firewall Troubleshooting Cheat Sheet
 
-Firewall Troubleshooting is a quick-reference guide for incident response on Linux systems. Troubleshooting is a disciplined loop: define the symptom, collect evidence, form a hypothesis, test one variable, and document the result. Skipping steps feels faster but often extends outages.
+## Overview
 
-## Data To Collect
+This document provides a practical enterprise Linux administration cheat sheet for firewall troubleshooting, firewalld diagnostics, network filtering validation, service accessibility testing, and operational recovery on Red Hat Enterprise Linux (RHEL) 9.6 systems.
 
-| Command | Typical use |
+The commands and workflows included are commonly used during enterprise connectivity incidents, service outage investigations, security validation, firewall auditing, and infrastructure troubleshooting activities.
+
+This reference is designed for fast operational lookup during production Linux administration tasks.
+
+---
+
+## Environment Information
+
+| Component | Details |
 |---|---|
-| `firewall-cmd --get-active-zones` | Inspect, configure, or validate the firewall area in a repeatable way. |
-| `firewall-cmd --list-all` | Inspect, configure, or validate the firewall area in a repeatable way. |
-| `firewall-cmd --add-service=http --permanent` | Inspect, configure, or validate the firewall area in a repeatable way. |
-| `firewall-cmd --reload` | Inspect, configure, or validate the firewall area in a repeatable way. |
-| `nft list ruleset` | Inspect, configure, or validate the firewall area in a repeatable way. |
+| Operating System | RHEL 9.6 |
+| Hostname | rhel01.lab.local |
+| Firewall Platform | firewalld |
+| Firewall Backend | nftables |
+| SELinux Mode | Enforcing |
+| Network Manager | NetworkManager |
+| User Context | root / sudo administrator |
+| Lab Platform | VMware Enterprise Lab |
 
-## Example Collection
+---
+
+## Common Commands
+
+### Verify Firewall Service Status
+
+```bash
+systemctl status firewalld
+```
+
+### Display Active Firewall Zones
 
 ```bash
 firewall-cmd --get-active-zones
-firewall-cmd --list-all
-firewall-cmd --add-service=http --permanent
-firewall-cmd --reload
-nft list ruleset
 ```
 
-## How To Think About Results
+### Display Current Firewall Rules
 
-Look for the first failing layer. In a network case, name resolution may fail before routing is relevant. In a filesystem case, an application error may be caused by permissions, SELinux labels, quota, or a read-only remount. In a performance case, check whether the issue is saturation, latency, errors, or external dependency failure.
+```bash
+firewall-cmd --list-all
+```
 
-## Escalation Notes
+### Display Allowed Services
 
-Escalate with evidence instead of conclusions. Include timestamps, hostname, service name, recent changes, commands run, important logs, and impact. If you changed anything, include the exact command and whether it helped. Clear notes reduce repeated work and make root cause analysis possible after service is restored.
+```bash
+firewall-cmd --list-services
+```
 
-## Operator Notes
+### Display Allowed Ports
 
-Treat Firewall Troubleshooting as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+```bash
+firewall-cmd --list-ports
+```
+
+### Open HTTP Service Permanently
+
+```bash
+firewall-cmd --permanent --add-service=http
+```
+
+### Open Custom Port
+
+```bash
+firewall-cmd --permanent --add-port=8080/tcp
+```
+
+### Reload Firewall Rules
+
+```bash
+firewall-cmd --reload
+```
+
+### Verify Listening Network Ports
+
+```bash
+ss -tulpn
+```
+
+### Test Port Connectivity
+
+```bash
+nc -vz 192.168.10.20 80
+```
+
+### Review Firewall Logs
+
+```bash
+journalctl -u firewalld
+```
+
+### Verify SELinux Port Contexts
+
+```bash
+semanage port -l
+```
+
+---
+
+## Administrative Examples
+
+### Verify Firewall Status and Zones
+
+```bash
+systemctl status firewalld
+firewall-cmd --get-active-zones
+```
+
+### Allow HTTP and HTTPS Services
+
+```bash
+firewall-cmd --permanent --add-service=http
+firewall-cmd --permanent --add-service=https
+firewall-cmd --reload
+```
+
+### Open Custom Application Port
+
+```bash
+firewall-cmd --permanent --add-port=8080/tcp
+firewall-cmd --reload
+```
+
+### Remove Unused Port Rule
+
+```bash
+firewall-cmd --permanent --remove-port=8080/tcp
+firewall-cmd --reload
+```
+
+### Verify Active Listening Services
+
+```bash
+ss -tulpn
+```
+
+### Test Remote Connectivity
+
+```bash
+nc -vz 192.168.10.20 22
+```
+
+### Review Firewall Runtime Configuration
+
+```bash
+firewall-cmd --runtime-to-permanent
+```
+
+### Verify SELinux Port Labeling
+
+```bash
+semanage port -l | grep http
+```
+
+---
+
+## Validation Commands
+
+### Verify Firewall Service State
+
+```bash
+systemctl is-active firewalld
+```
+
+Example output:
+
+```text
+active
+```
+
+### Validate Active Firewall Rules
+
+```bash
+firewall-cmd --list-all
+```
+
+### Verify Allowed Services
+
+```bash
+firewall-cmd --list-services
+```
+
+### Validate Open Ports
+
+```bash
+firewall-cmd --list-ports
+```
+
+### Verify Listening Ports
+
+```bash
+ss -tulpn
+```
+
+### Validate SELinux Port Assignments
+
+```bash
+semanage port -l
+```
+
+### Review Firewall Logs
+
+```bash
+journalctl -u firewalld
+```
+
+### Test Connectivity to Service Port
+
+```bash
+nc -vz 192.168.10.20 443
+```
+
+---
+
+## Troubleshooting Tips
+
+### Service Not Reachable
+
+Verify listening ports:
+
+```bash
+ss -tulpn
+```
+
+Verify firewall rules:
+
+```bash
+firewall-cmd --list-all
+```
+
+### Firewall Service Fails to Start
+
+Review service status:
+
+```bash
+systemctl status firewalld
+```
+
+Review logs:
+
+```bash
+journalctl -xe
+```
+
+### Port Open but Traffic Blocked
+
+Verify SELinux context:
+
+```bash
+semanage port -l
+```
+
+Review AVC denials:
+
+```bash
+ausearch -m avc -ts recent
+```
+
+### Incorrect Zone Assignment
+
+Display active zones:
+
+```bash
+firewall-cmd --get-active-zones
+```
+
+Assign interface to correct zone:
+
+```bash
+firewall-cmd --zone=public --change-interface=ens160
+```
+
+### Runtime Rules Lost After Reboot
+
+Save runtime configuration:
+
+```bash
+firewall-cmd --runtime-to-permanent
+```
+
+### Connectivity Testing Failure
+
+Verify network connectivity:
+
+```bash
+ping -c 4 192.168.10.1
+```
+
+Test application port:
+
+```bash
+nc -vz 192.168.10.20 8080
+```
+
+---
+
+## Operational Notes
+
+- Validate firewall rules after application deployments.
+- Keep only required ports and services exposed.
+- Review firewall and SELinux integration during troubleshooting.
+- Use permanent rules for production configurations.
+- Monitor firewall logs during connectivity investigations.
+- Validate zone assignments after network changes.
+- Document firewall changes during maintenance activities.
+
+Example operational audit commands:
+
+```bash
+firewall-cmd --list-all
+ss -tulpn
+journalctl -u firewalld
+```
+
+---
+
+## Screenshot Reference
+
+![Validation Screenshot](../screenshots/firewall-troubleshooting.png)
