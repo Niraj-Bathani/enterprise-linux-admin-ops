@@ -1,35 +1,325 @@
-# Initial Network Config
+# initial-network-config.md
 
-## Scope
+# Initial Network Configuration Cheat Sheet
 
-This setup guide prepares a controlled enterprise Linux lab. The recommended environment is two or more virtual machines: one administration workstation, one server under test, and optional client nodes for network, NFS, SSH, and web service exercises. Keep snapshots before major storage, firewall, boot, or identity changes. Use RHEL 8 or RHEL 9 when possible; compatible rebuilds are acceptable for practice if subscription management commands are adjusted.
+## Overview
 
-## Planning Checklist
+This document provides a practical enterprise Linux administration cheat sheet for initial network configuration, interface management, hostname configuration, DNS setup, routing validation, and troubleshooting operations on Red Hat Enterprise Linux (RHEL) 9.6 systems.
 
-| Item | Recommendation |
+The commands and workflows included are commonly used during enterprise server deployments, infrastructure provisioning, VM onboarding, connectivity troubleshooting, and operational maintenance activities.
+
+This reference is designed for fast operational lookup during production Linux administration tasks.
+
+---
+
+## Environment Information
+
+| Component | Details |
 |---|---|
-| CPU and memory | 2 vCPU and 4 GB RAM per VM for normal labs |
-| Disk | 40 GB system disk plus optional extra virtual disks |
-| Network | One NAT adapter for internet, one host-only lab network |
-| Access | Console access plus SSH after hardening is validated |
-| Snapshots | Take a clean baseline after package updates |
+| Operating System | RHEL 9.6 |
+| Hostname | rhel01.lab.local |
+| Primary Interface | ens160 |
+| Network Manager | NetworkManager |
+| DNS Service | systemd-resolved |
+| SELinux Mode | Enforcing |
+| User Context | root / sudo administrator |
+| Lab Platform | VMware Enterprise Lab |
 
-## Procedure
+---
+
+## Common Commands
+
+### Display Network Interfaces
 
 ```bash
 ip addr show
-ip route show
-nmcli device status
-nmcli connection show
-ss -tulpen
 ```
 
-Start with a minimal install plus standard administration tools. Configure a predictable hostname, confirm DNS resolution, update packages, and enable only the services required for the current module. Document IP addresses, interface names, disk names, and credentials in a private lab note rather than in the repository.
+### Display Interface Status
 
-## Verification
+```bash
+nmcli device status
+```
 
-Confirm that `systemctl is-system-running` reports a healthy or degraded state you understand. Check `ip addr`, `ip route`, `timedatectl`, `dnf repolist`, and `getenforce`. A setup is not complete until you can reboot, reconnect, install a package, and resolve names from both the server and client perspectives.
+### Configure Static IP Address
 
-## Operator Notes
+```bash
+nmcli connection modify ens160 ipv4.addresses 192.168.10.20/24
+```
 
-Treat Initial Network Config as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+### Configure Default Gateway
+
+```bash
+nmcli connection modify ens160 ipv4.gateway 192.168.10.1
+```
+
+### Configure DNS Servers
+
+```bash
+nmcli connection modify ens160 ipv4.dns "8.8.8.8 1.1.1.1"
+```
+
+### Enable Manual IPv4 Configuration
+
+```bash
+nmcli connection modify ens160 ipv4.method manual
+```
+
+### Restart Network Connection
+
+```bash
+nmcli connection down ens160 && nmcli connection up ens160
+```
+
+### Display Routing Table
+
+```bash
+ip route
+```
+
+### Display Hostname Information
+
+```bash
+hostnamectl
+```
+
+### Set System Hostname
+
+```bash
+hostnamectl set-hostname rhel01.lab.local
+```
+
+### Test Network Connectivity
+
+```bash
+ping -c 4 8.8.8.8
+```
+
+### Verify DNS Resolution
+
+```bash
+host redhat.com
+```
+
+---
+
+## Administrative Examples
+
+### Configure Static Enterprise Network
+
+```bash
+nmcli connection modify ens160 \
+ipv4.addresses 192.168.10.20/24 \
+ipv4.gateway 192.168.10.1 \
+ipv4.dns "8.8.8.8 1.1.1.1" \
+ipv4.method manual
+```
+
+### Apply Network Configuration
+
+```bash
+nmcli connection down ens160
+nmcli connection up ens160
+```
+
+### Configure Hostname
+
+```bash
+hostnamectl set-hostname rhel01.lab.local
+```
+
+### Verify Active Network Configuration
+
+```bash
+ip addr show ens160
+```
+
+### Validate Default Gateway
+
+```bash
+ip route
+```
+
+### Configure Secondary DNS Server
+
+```bash
+nmcli connection modify ens160 +ipv4.dns 9.9.9.9
+```
+
+### Display Active NetworkManager Connections
+
+```bash
+nmcli connection show
+```
+
+### Test Internet Connectivity
+
+```bash
+ping -c 4 google.com
+```
+
+---
+
+## Validation Commands
+
+### Verify Interface IP Address
+
+```bash
+ip addr show ens160
+```
+
+Example output:
+
+```text
+inet 192.168.10.20/24 brd 192.168.10.255 scope global ens160
+```
+
+### Validate Routing Table
+
+```bash
+ip route
+```
+
+### Verify DNS Configuration
+
+```bash
+cat /etc/resolv.conf
+```
+
+### Validate Hostname Configuration
+
+```bash
+hostnamectl
+```
+
+### Verify Interface Connectivity
+
+```bash
+ping -c 4 192.168.10.1
+```
+
+### Validate Internet Connectivity
+
+```bash
+ping -c 4 8.8.8.8
+```
+
+### Verify DNS Resolution
+
+```bash
+host redhat.com
+```
+
+### Review NetworkManager Logs
+
+```bash
+journalctl -u NetworkManager
+```
+
+---
+
+## Troubleshooting Tips
+
+### Interface Not Receiving IP Address
+
+Verify interface state:
+
+```bash
+nmcli device status
+```
+
+Restart connection:
+
+```bash
+nmcli connection up ens160
+```
+
+### Network Connectivity Failure
+
+Verify routing table:
+
+```bash
+ip route
+```
+
+Ping default gateway:
+
+```bash
+ping -c 4 192.168.10.1
+```
+
+### DNS Resolution Problems
+
+Verify resolver configuration:
+
+```bash
+cat /etc/resolv.conf
+```
+
+Test DNS queries:
+
+```bash
+host redhat.com
+```
+
+### Incorrect Hostname Configuration
+
+Review hostname settings:
+
+```bash
+hostnamectl
+```
+
+Reapply hostname:
+
+```bash
+hostnamectl set-hostname rhel01.lab.local
+```
+
+### NetworkManager Service Issues
+
+Verify service status:
+
+```bash
+systemctl status NetworkManager
+```
+
+Restart service:
+
+```bash
+systemctl restart NetworkManager
+```
+
+### Firewall Blocking Connectivity
+
+Review firewall rules:
+
+```bash
+firewall-cmd --list-all
+```
+
+---
+
+## Operational Notes
+
+- Configure static IP addresses for enterprise infrastructure servers.
+- Validate DNS and routing configuration after deployment.
+- Use descriptive hostnames aligned with enterprise naming standards.
+- Verify connectivity before joining systems to enterprise services.
+- Maintain documented network assignments for operational tracking.
+- Review NetworkManager logs during troubleshooting activities.
+- Validate firewall and SELinux integration after network changes.
+
+Example operational audit commands:
+
+```bash
+nmcli device status
+ip route
+hostnamectl
+```
+
+---
+
+## Screenshot Reference
+
+![Validation Screenshot](../screenshots/initial-network-config.png)
