@@ -1,35 +1,326 @@
-# RHEL Installation
+# rhel-installation.md
 
-## Scope
+# RHEL Installation and Deployment Cheat Sheet
 
-This setup guide prepares a controlled enterprise Linux lab. The recommended environment is two or more virtual machines: one administration workstation, one server under test, and optional client nodes for network, NFS, SSH, and web service exercises. Keep snapshots before major storage, firewall, boot, or identity changes. Use RHEL 8 or RHEL 9 when possible; compatible rebuilds are acceptable for practice if subscription management commands are adjusted.
+## Overview
 
-## Planning Checklist
+This document provides a practical enterprise Linux administration cheat sheet for Red Hat Enterprise Linux (RHEL) 9.6 installation, deployment preparation, storage configuration, subscription registration, and initial system setup operations.
 
-| Item | Recommendation |
+The commands and workflows included are commonly used during enterprise server provisioning, virtual machine deployments, infrastructure onboarding, installation validation, and operational readiness activities.
+
+This reference is designed for fast operational lookup during production Linux administration tasks.
+
+---
+
+## Environment Information
+
+| Component | Details |
 |---|---|
-| CPU and memory | 2 vCPU and 4 GB RAM per VM for normal labs |
-| Disk | 40 GB system disk plus optional extra virtual disks |
-| Network | One NAT adapter for internet, one host-only lab network |
-| Access | Console access plus SSH after hardening is validated |
-| Snapshots | Take a clean baseline after package updates |
+| Operating System | RHEL 9.6 |
+| Installation Method | ISO / PXE |
+| Hostname | rhel01.lab.local |
+| Boot Mode | UEFI |
+| Filesystem Type | XFS |
+| SELinux Mode | Enforcing |
+| User Context | root / sudo administrator |
+| Lab Platform | VMware Enterprise Lab |
 
-## Procedure
+---
+
+## Common Commands
+
+### Verify Operating System Release
 
 ```bash
-pwd
-ls -lah /etc
-find /var/log -maxdepth 1 -type f
-df -hT
-du -sh /var/log/* | sort -h
+cat /etc/redhat-release
 ```
 
-Start with a minimal install plus standard administration tools. Configure a predictable hostname, confirm DNS resolution, update packages, and enable only the services required for the current module. Document IP addresses, interface names, disk names, and credentials in a private lab note rather than in the repository.
+### Display Kernel Information
 
-## Verification
+```bash
+uname -r
+```
 
-Confirm that `systemctl is-system-running` reports a healthy or degraded state you understand. Check `ip addr`, `ip route`, `timedatectl`, `dnf repolist`, and `getenforce`. A setup is not complete until you can reboot, reconnect, install a package, and resolve names from both the server and client perspectives.
+### Display Hostname Information
 
-## Operator Notes
+```bash
+hostnamectl
+```
 
-Treat RHEL Installation as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+### Verify Disk Layout
+
+```bash
+lsblk
+```
+
+### Display Mounted Filesystems
+
+```bash
+df -Th
+```
+
+### Verify Network Connectivity
+
+```bash
+ping -c 4 8.8.8.8
+```
+
+### Register System with Red Hat Subscription
+
+```bash
+subscription-manager register
+```
+
+### Attach Subscription Automatically
+
+```bash
+subscription-manager attach --auto
+```
+
+### Enable RHEL Repositories
+
+```bash
+subscription-manager repos --enable=rhel-9-for-x86_64-baseos-rpms
+```
+
+### Update Installed Packages
+
+```bash
+dnf update -y
+```
+
+### Verify SELinux Status
+
+```bash
+sestatus
+```
+
+### Display Active Services
+
+```bash
+systemctl --type=service --state=running
+```
+
+---
+
+## Administrative Examples
+
+### Validate Enterprise Installation
+
+```bash
+cat /etc/redhat-release
+uname -r
+hostnamectl
+```
+
+### Configure Hostname
+
+```bash
+hostnamectl set-hostname rhel01.lab.local
+```
+
+### Register System to Red Hat Subscription
+
+```bash
+subscription-manager register
+subscription-manager attach --auto
+```
+
+### Enable Required Enterprise Repositories
+
+```bash
+subscription-manager repos \
+--enable=rhel-9-for-x86_64-baseos-rpms \
+--enable=rhel-9-for-x86_64-appstream-rpms
+```
+
+### Apply Initial System Updates
+
+```bash
+dnf update -y
+```
+
+### Verify Filesystem and Storage Layout
+
+```bash
+lsblk
+df -Th
+```
+
+### Configure Time Synchronization
+
+```bash
+systemctl enable --now chronyd
+```
+
+### Verify Network Connectivity
+
+```bash
+ping -c 4 google.com
+```
+
+---
+
+## Validation Commands
+
+### Verify Installed RHEL Version
+
+```bash
+cat /etc/redhat-release
+```
+
+Example output:
+
+```text
+Red Hat Enterprise Linux release 9.6 (Plow)
+```
+
+### Validate Kernel Version
+
+```bash
+uname -r
+```
+
+### Verify Hostname Configuration
+
+```bash
+hostnamectl
+```
+
+### Validate Filesystem Mounts
+
+```bash
+df -Th
+```
+
+### Verify Active Repositories
+
+```bash
+dnf repolist
+```
+
+### Validate Subscription Status
+
+```bash
+subscription-manager status
+```
+
+### Verify SELinux Enforcement
+
+```bash
+getenforce
+```
+
+### Review Boot Logs
+
+```bash
+journalctl -b
+```
+
+---
+
+## Troubleshooting Tips
+
+### Subscription Registration Failure
+
+Verify network connectivity:
+
+```bash
+ping -c 4 cdn.redhat.com
+```
+
+Review subscription status:
+
+```bash
+subscription-manager status
+```
+
+### Package Repository Access Problems
+
+Verify enabled repositories:
+
+```bash
+dnf repolist
+```
+
+Clean metadata cache:
+
+```bash
+dnf clean all
+```
+
+### Missing Network Connectivity
+
+Verify interface configuration:
+
+```bash
+ip addr
+```
+
+Review routing:
+
+```bash
+ip route
+```
+
+### Filesystem Mount Issues
+
+Verify mounted filesystems:
+
+```bash
+mount
+```
+
+Review fstab configuration:
+
+```bash
+cat /etc/fstab
+```
+
+### SELinux Access Problems
+
+Review SELinux status:
+
+```bash
+sestatus
+```
+
+Review AVC denials:
+
+```bash
+ausearch -m avc -ts recent
+```
+
+### System Boot Problems
+
+Review boot logs:
+
+```bash
+journalctl -b
+```
+
+---
+
+## Operational Notes
+
+- Validate installation settings before onboarding systems into enterprise environments.
+- Register systems with Red Hat subscriptions immediately after deployment.
+- Apply system updates before production use.
+- Verify SELinux, firewall, and networking configurations after installation.
+- Maintain consistent hostname and repository configuration standards.
+- Review storage layouts and filesystem configurations during provisioning.
+- Document deployed infrastructure for operational tracking and compliance.
+
+Example operational audit commands:
+
+```bash
+subscription-manager status
+dnf repolist
+hostnamectl
+```
+
+---
+
+## Screenshot Reference
+
+![Validation Screenshot](../screenshots/rhel-installation.png)
