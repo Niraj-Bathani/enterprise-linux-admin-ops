@@ -1,31 +1,317 @@
-# Memory Analysis
+# memory-analysis.md
 
-## Analysis Goal
+# Memory Analysis and Performance Monitoring Cheat Sheet
 
-Memory Analysis helps administrators distinguish a real bottleneck from normal activity. Performance work should start with user impact: what is slow, since when, for whom, and compared with what baseline? Tools such as `top`, `sar`, `iostat`, and `ss` are most useful when their output is tied to a timeline.
+## Overview
 
-## First Commands
+This document provides a practical enterprise Linux administration cheat sheet for memory utilization analysis, swap monitoring, cache inspection, process memory tracking, and troubleshooting operations on Red Hat Enterprise Linux (RHEL) 9.6 systems.
+
+The commands and workflows included are commonly used during enterprise performance investigations, application troubleshooting, resource optimization, infrastructure monitoring, and incident response activities.
+
+This reference is designed for fast operational lookup during production Linux administration tasks.
+
+---
+
+## Environment Information
+
+| Component | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel01.lab.local |
+| Monitoring Utilities | procps-ng / sysstat |
+| Swap Configuration | Enabled |
+| Kernel Version | 5.14.x |
+| SELinux Mode | Enforcing |
+| User Context | root / sudo administrator |
+| Lab Platform | VMware Enterprise Lab |
+
+---
+
+## Common Commands
+
+### Display Memory Usage
 
 ```bash
-uptime
-mpstat 1 5
 free -h
-iostat -xz 1 5
-sar -n DEV 1 5
 ```
 
-## Interpretation
+### Monitor Memory Usage in Real Time
 
-High CPU usage is not automatically bad if throughput is healthy. Memory pressure matters when swapping, reclaim, or OOM events appear. Disk latency is often more important than raw throughput. Network problems may appear as retransmits, drops, DNS delay, or blocked ports. Compare current data to normal business hours and recent changes such as deployments, package updates, backups, or batch jobs.
+```bash
+top
+```
 
-## Investigation Flow
+### Enhanced Interactive Monitoring
 
-Start broad with load average, memory, disk, and network counters. Then narrow to a process, device, mount point, socket, or time window. Use `journalctl` and application logs to connect metric spikes with service behavior. Avoid tuning kernel parameters until you have evidence; many performance incidents are caused by capacity limits, application behavior, or a failing dependency rather than a missing sysctl.
+```bash
+htop
+```
 
-## Deliverable
+### Display Virtual Memory Statistics
 
-End with a short finding: symptom, evidence, suspected cause, mitigation, and monitoring recommendation. Good notes make later incidents faster to resolve.
+```bash
+vmstat 2
+```
 
-## Operator Notes
+### Display Memory Information
 
-Treat Memory Analysis as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+```bash
+cat /proc/meminfo
+```
+
+### Display Top Memory-Consuming Processes
+
+```bash
+ps aux --sort=-%mem | head
+```
+
+### Monitor Process Memory Usage
+
+```bash
+pidstat -r 2
+```
+
+### Display Swap Usage
+
+```bash
+swapon --show
+```
+
+### Display Historical Memory Statistics
+
+```bash
+sar -r 2 5
+```
+
+### Display NUMA Memory Information
+
+```bash
+numactl --hardware
+```
+
+### Display Slab Cache Information
+
+```bash
+slabtop
+```
+
+### Review Kernel Memory Logs
+
+```bash
+journalctl -k
+```
+
+---
+
+## Administrative Examples
+
+### Identify High Memory Usage Processes
+
+```bash
+ps aux --sort=-%mem | head
+```
+
+### Monitor Swap Activity
+
+```bash
+vmstat 2
+```
+
+### Analyze Memory Pressure
+
+```bash
+free -h
+```
+
+Example output:
+
+```text
+              total        used        free      shared  buff/cache   available
+Mem:           15Gi       4.2Gi       6.8Gi       512Mi       4.0Gi        10Gi
+Swap:           4Gi       256Mi       3.7Gi
+```
+
+### Display Process Memory Allocation
+
+```bash
+pidstat -r
+```
+
+### Capture Memory Performance Snapshot
+
+```bash
+free -h > memory-report.txt
+```
+
+### Monitor Cache and Buffer Usage
+
+```bash
+cat /proc/meminfo | grep -E 'Buffers|Cached'
+```
+
+### Analyze Historical Memory Utilization
+
+```bash
+sar -r
+```
+
+### Monitor OOM Killer Activity
+
+```bash
+dmesg | grep -i oom
+```
+
+---
+
+## Validation Commands
+
+### Verify Total Memory
+
+```bash
+free -h
+```
+
+### Validate Swap Configuration
+
+```bash
+swapon --show
+```
+
+### Verify Memory Allocation Details
+
+```bash
+cat /proc/meminfo
+```
+
+### Validate Process Memory Usage
+
+```bash
+ps aux --sort=-%mem | head
+```
+
+### Verify Virtual Memory Statistics
+
+```bash
+vmstat
+```
+
+### Validate Historical Memory Trends
+
+```bash
+sar -r 1 5
+```
+
+### Verify Kernel Memory Messages
+
+```bash
+dmesg | tail
+```
+
+### Review System Performance Logs
+
+```bash
+journalctl -xe
+```
+
+---
+
+## Troubleshooting Tips
+
+### High Memory Utilization
+
+Identify memory-intensive processes:
+
+```bash
+ps aux --sort=-%mem | head
+```
+
+Monitor in real time:
+
+```bash
+top
+```
+
+### Excessive Swap Usage
+
+Review swap activity:
+
+```bash
+vmstat 2
+```
+
+Display swap usage:
+
+```bash
+swapon --show
+```
+
+### Application Memory Leaks
+
+Monitor process memory growth:
+
+```bash
+pidstat -r 2
+```
+
+### Out of Memory (OOM) Events
+
+Review kernel OOM logs:
+
+```bash
+dmesg | grep -i oom
+```
+
+Review journal logs:
+
+```bash
+journalctl -k
+```
+
+### Memory Fragmentation or Cache Issues
+
+Review slab cache usage:
+
+```bash
+slabtop
+```
+
+Display cache information:
+
+```bash
+cat /proc/meminfo
+```
+
+### Performance Degradation During Peak Usage
+
+Analyze historical memory trends:
+
+```bash
+sar -r
+```
+
+---
+
+## Operational Notes
+
+- Monitor memory utilization regularly during enterprise maintenance windows.
+- Investigate abnormal swap usage before application performance degradation occurs.
+- Use historical monitoring tools for trend analysis and capacity planning.
+- Validate process memory behavior during troubleshooting investigations.
+- Monitor OOM events during production incidents.
+- Maintain memory utilization baselines for enterprise infrastructure systems.
+- Review kernel logs during memory-related investigations.
+
+Example operational audit commands:
+
+```bash
+free -h
+vmstat 2
+sar -r 1 5
+```
+
+---
+
+## Screenshot Reference
+
+![Validation Screenshot](../screenshots/memory-analysis.png)
+
