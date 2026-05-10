@@ -1,33 +1,265 @@
-# Diagnosis
+# Incident 06 — RAID Degraded State
 
-## Diagnostic Approach
+## Overview
 
-The diagnosis started by proving the failure layer. The team checked whether the host was reachable, whether the service was running, whether configuration parsed cleanly, and whether logs showed a direct denial or resource error. This prevented guessing and kept the response focused.
+This document captures the diagnostic investigation performed during a RAID degradation incident affecting `rhel9-storage01.prod.corp.local`.
 
-## Commands Used
+The incident resulted in reduced storage redundancy after a member disk failure caused the software RAID array to enter a degraded operational state.
 
-```bash
-systemctl status mdadm
-journalctl -u mdadm -b --no-pager | tail -50
-ss -tulpen
-getenforce
-ausearch -m AVC -ts recent
-```
+---
 
-## Findings
+# Incident Summary
 
-The important log line was:
+| Item | Details |
+|---|---|
+| Incident ID | INC-RAID-2026-006 |
+| Severity | SEV-2 |
+| Environment | Production |
+| Affected Host | rhel9-storage01.prod.corp.local |
+| Operating System | RHEL 9.6 |
+| Service Impacted | RAID Storage Array |
+| Detection Time | 2026-05-28 01:18 UTC |
+| Status | Resolved |
+
+---
+
+# Symptoms
+
+Observed symptoms during the incident:
+
+- RAID degraded alerts
+- elevated disk I/O latency
+- storage redundancy loss
+- SMART disk failure warnings
+- increased storage monitoring events
+- degraded filesystem performance
+
+Monitoring alert example:
 
 ```text
-md/raid1:md0: Disk failure on sdb1, disabling device
+ALERT: RAIDArrayDegraded
+Host: rhel9-storage01.prod.corp.local
+Array: /dev/md0
+Severity: high
 ```
 
-The message matched the reported symptom and pointed to a specific configuration, resource, or dependency. Related checks ruled out broad host failure, DNS-only failure, and unrelated package changes. The likely cause was one virtual disk failed and the spare was not automatically added.
+---
 
-## Operator Notes
+# Detection
 
-Treat Diagnosis as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+The issue was identified through:
 
-## Validation Habit
+- RAID monitoring alerts
+- mdadm event notifications
+- SMART disk failure reports
+- Linux operations escalation
 
-A good administrator validates from two directions: the local system state and the client experience. Do not only check that a daemon is active; also test the socket, review the log, and confirm that persistence survives a reboot. This habit prevents temporary fixes from being mistaken for durable operations. Keep commands readable, prefer documented configuration files, and avoid destructive shortcuts unless a backup and rollback plan are already written.
+---
+
+# Initial Validation
+
+## Verify RAID Status
+
+```bash
+cat /proc/mdstat
+```
+
+Output:
+
+```text
+Personalities : [raid1]
+md0 : active raid1 sdb1[1]
+      1047552 blocks super 1.2 [2/1] [_U]
+```
+
+The RAID1 array entered degraded mode after loss of one member disk.
+
+---
+
+## Verify RAID Array Details
+
+```bash
+mdadm --detail /dev/md0
+```
+
+Output:
+
+```text
+/dev/md0:
+        Version : 1.2
+  Creation Time : Thu May 22 14:12:11 2026
+     Raid Level : raid1
+     Array Size : 1047552
+  Used Dev Size : 1047552
+   Raid Devices : 2
+  Total Devices : 1
+    State : clean, degraded
+```
+
+RAID redundancy was unavailable during the incident.
+
+---
+
+# Disk Validation
+
+## Identify Failed Disk
+
+```bash
+lsblk
+```
+
+Output:
+
+```text
+NAME    MAJ:MIN RM  SIZE RO TYPE  MOUNTPOINT
+sda       8:0    0   40G  0 disk
+sdb       8:16   0   40G  0 disk
+└─md0     9:0    0   40G  0 raid1 /
+```
+
+The `sda` member disk was unavailable from the active array.
+
+---
+
+## Review Kernel Disk Errors
+
+```bash
+journalctl -k -n 20 --no-pager
+```
+
+Output:
+
+```text
+May 28 01:11:42 rhel9-storage01 kernel: sd 0:0:0:0: rejecting I/O to offline device
+May 28 01:11:43 rhel9-storage01 kernel: md/raid1:md0: Disk failure on sda1, disabling device
+May 28 01:11:44 rhel9-storage01 kernel: md/raid1:md0: Operation continuing on 1 devices
+```
+
+Kernel logs confirmed disk failure activity affecting the RAID array.
+
+---
+
+# SMART Diagnostics
+
+## Verify SMART Status
+
+```bash
+smartctl -a /dev/sda
+```
+
+Output:
+
+```text
+SMART overall-health self-assessment test result: FAILED
+Reallocated_Sector_Ct = 392
+Current_Pending_Sector = 81
+Offline_Uncorrectable = 47
+```
+
+The failed disk reported critical hardware degradation indicators.
+
+---
+
+# Filesystem Validation
+
+## Verify Filesystem Status
+
+```bash
+df -h
+```
+
+Output:
+
+```text
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/md0         40G   18G   20G  48% /
+```
+
+Filesystem availability remained operational despite RAID degradation.
+
+---
+
+## Verify Filesystem Integrity
+
+```bash
+dmesg | grep EXT4
+```
+
+Output:
+
+```text
+EXT4-fs (md0): mounted filesystem with ordered data mode
+```
+
+No filesystem corruption indicators were identified.
+
+---
+
+# RAID Event Validation
+
+## Review mdadm Events
+
+```bash
+journalctl | grep mdadm
+```
+
+Output:
+
+```text
+May 28 01:12:01 rhel9-storage01 mdadm[1121]: Fail event detected on /dev/sda1
+May 28 01:12:02 rhel9-storage01 mdadm[1121]: DegradedArray event detected on /dev/md0
+```
+
+RAID monitoring confirmed array degradation events.
+
+---
+
+# SELinux Validation
+
+## Verify SELinux Status
+
+```bash
+getenforce
+```
+
+Output:
+
+```text
+Enforcing
+```
+
+SELinux remained enabled throughout the incident.
+
+---
+
+# Investigation Findings
+
+The investigation identified physical disk failure as the primary contributor to RAID degradation.
+
+Key findings:
+
+- RAID1 array entered degraded operational state
+- member disk `/dev/sda1` failed
+- SMART diagnostics reported critical hardware errors
+- storage redundancy became unavailable
+- filesystem integrity remained healthy
+- operating system services remained operational
+
+The outage was isolated to hardware disk failure affecting RAID redundancy.
+
+---
+
+# Operational Impact
+
+- reduced storage fault tolerance
+- increased storage risk exposure
+- elevated disk I/O latency
+- increased operational monitoring activity
+
+No filesystem corruption or operating system outage occurred during the incident.
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/incident-06-diagnosis.png)
