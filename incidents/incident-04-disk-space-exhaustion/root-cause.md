@@ -1,21 +1,273 @@
-# Root Cause
+# Incident 04 — Disk Space Exhaustion
 
-## Root Cause Statement
+## Overview
 
-The root cause was application debug logs grew without rotation after a deployment. The condition was introduced by a routine administrative or deployment change that did not include enough validation for the affected service. The technical failure was visible in the log line below, which directly explains the symptom.
+This document provides the root cause analysis (RCA) for the disk space exhaustion incident affecting `rhel9-db01.prod.corp.local`.
+
+The analysis identifies the technical failure condition, contributing operational factors, impact scope, and corrective actions implemented to restore filesystem stability and database operations.
+
+---
+
+# Incident Summary
+
+| Item | Details |
+|---|---|
+| Incident ID | INC-DISK-2026-004 |
+| Severity | SEV-1 |
+| Environment | Production |
+| Affected Host | rhel9-db01.prod.corp.local |
+| Operating System | RHEL 9.6 |
+| Service Impacted | Database Storage |
+| Duration | 37 Minutes |
+| Status | Resolved |
+
+---
+
+# Incident Description
+
+Production database services experienced operational instability after the `/var` filesystem reached full utilization.
+
+The issue disrupted:
+
+- PostgreSQL database operations
+- application transaction processing
+- scheduled backup execution
+- logging subsystem functionality
+
+Although the operating system remained operational, multiple application services failed because storage resources became unavailable.
+
+---
+
+# Detection Summary
+
+The issue was detected through:
+
+- filesystem utilization monitoring alerts
+- PostgreSQL service failures
+- backup operation alarms
+- Linux operations escalation procedures
+
+Example monitoring event:
 
 ```text
-kernel: EXT4-fs warning: mounting fs with errors, running e2fsck is recommended
+ALERT: FilesystemUsageCritical
+Host: rhel9-db01.prod.corp.local
+MountPoint: /var
+Usage: 100%
+Severity: critical
 ```
 
-## Contributing Factors
+---
 
-Contributing factors included incomplete post-change checks, missing alert context, and insufficient runbook detail for the service owner. The issue was not treated as an isolated command failure; it was treated as a process gap around change validation and operational readiness.
+# Technical Investigation
 
-## Detection
+## Filesystem Validation
 
-The incident was detected by users or monitoring after the failed state was already active. Earlier detection would have been possible with a health check that validates the real client path rather than only checking process state.
+Filesystem utilization reached critical capacity levels.
 
-## Operator Notes
+```bash
+df -h
+```
 
-Treat Root Cause as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+Output:
+
+```text
+Filesystem               Size  Used Avail Use% Mounted on
+/dev/mapper/rhel-var      80G   80G   12M 100% /var
+```
+
+The `/var` filesystem was fully consumed during the incident.
+
+---
+
+## Inode Validation
+
+Inode utilization remained healthy.
+
+```bash
+df -i
+```
+
+Output:
+
+```text
+Filesystem                Inodes  IUsed   IFree IUse% Mounted on
+/dev/mapper/rhel-var     5242880 241102 5001778    5% /var
+```
+
+The issue was isolated to storage capacity exhaustion rather than inode depletion.
+
+---
+
+## Log Growth Analysis
+
+Large log files were identified within `/var/log`.
+
+```bash
+find /var/log -type f -size +1G -exec ls -lh {} \;
+```
+
+Output:
+
+```text
+-rw-------. 1 root root 42G May 20 03:08 /var/log/messages
+-rw-------. 1 root root 21G May 20 03:10 /var/log/secure
+```
+
+System logs consumed the majority of available filesystem space.
+
+---
+
+## Logrotate Validation
+
+Logrotate execution failed during scheduled maintenance operations.
+
+```bash
+logrotate -d /etc/logrotate.conf
+```
+
+Output:
+
+```text
+error: skipping "/var/log/messages" because parent directory has insecure permissions
+```
+
+The failure prevented automatic rotation and compression of production log files.
+
+---
+
+## Directory Permission Validation
+
+Filesystem permission review identified invalid directory permissions.
+
+```bash
+ls -ld /var/log
+```
+
+Output:
+
+```text
+drwxrwxrwx. 14 root root 4096 May 20 03:05 /var/log
+```
+
+The `/var/log` directory permissions deviated from approved enterprise security baselines.
+
+---
+
+## Database Service Validation
+
+The PostgreSQL database service failed because filesystem space was unavailable.
+
+```bash
+systemctl status postgresql
+```
+
+Output:
+
+```text
+FATAL: could not write lock file "postmaster.pid": No space left on device
+```
+
+Database write operations could not complete successfully.
+
+---
+
+# Root Cause
+
+The incident was caused by failed log rotation resulting from incorrect `/var/log` directory permissions.
+
+The invalid permission configuration prevented logrotate from rotating and compressing production log files.
+
+As a result:
+
+- `/var/log/messages` and `/var/log/secure` expanded uncontrollably
+- `/var` filesystem reached 100% utilization
+- PostgreSQL write operations failed
+- application transaction processing degraded
+- backup operations became unstable
+
+---
+
+# Contributing Factors
+
+The following operational conditions contributed to the incident:
+
+| Contributing Factor | Impact |
+|---|---|
+| Permission drift on `/var/log` | Prevented logrotate execution |
+| Missing logrotate monitoring | Failure condition was not detected early |
+| High application logging volume | Accelerated filesystem growth |
+| Late filesystem alert thresholds | Reduced available recovery time |
+
+---
+
+# Impact Assessment
+
+The incident caused the following operational impact:
+
+- database write failures
+- application transaction instability
+- logging subsystem degradation
+- interrupted backup operations
+- increased operational response activity
+
+No operating system kernel instability or filesystem corruption occurred during the incident.
+
+---
+
+# Corrective Actions
+
+The following corrective actions were completed:
+
+- corrected `/var/log` permissions
+- forced manual log rotation
+- removed stale archived logs
+- reclaimed filesystem capacity
+- restored PostgreSQL services
+- validated database functionality
+
+Corrected directory permissions:
+
+```text
+drwxr-xr-x. 14 root root /var/log
+```
+
+---
+
+# Validation Results
+
+| Validation Item | Status |
+|---|---|
+| Filesystem capacity restored | PASS |
+| Logrotate operational | PASS |
+| PostgreSQL service restored | PASS |
+| Database connectivity restored | PASS |
+| Directory permissions corrected | PASS |
+
+---
+
+# Preventive Recommendations
+
+The following preventive measures were identified during RCA review:
+
+- automate logrotate execution validation
+- monitor filesystem growth proactively
+- detect permission drift automatically
+- expand large log file monitoring
+- standardize storage recovery procedures
+
+---
+
+# Final Assessment
+
+The incident originated from failed maintenance operations rather than storage hardware failure or operating system instability.
+
+The operating system, SELinux policies, filesystem integrity, and database data structures remained healthy throughout the incident lifecycle.
+
+The failure condition was isolated to uncontrolled log accumulation caused by incorrect filesystem permissions and failed automated log rotation.
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/incident-04-root-cause.png)
