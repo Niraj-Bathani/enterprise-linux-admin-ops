@@ -1,24 +1,203 @@
-# Lessons Learned
+# Incident 06 — RAID Degraded State
 
-## What Went Well
+## Overview
 
-The responder collected logs before making broad changes, focused on the failing layer, and restored service with a targeted action. This reduced risk and preserved evidence for root cause analysis.
+This document captures the operational lessons identified during the investigation and recovery of the RAID degradation incident on `rhel9-storage01.prod.corp.local`.
 
-## What Could Improve
+The objective is to improve storage monitoring, RAID maintenance procedures, and operational response workflows across the enterprise Linux infrastructure.
 
-The team needed clearer validation steps for `mdadm`. A process being active was not enough evidence that users could complete their workflow. The runbook should show exact commands, expected output, and common log patterns.
+---
 
-## Follow Up Tasks
+# Incident Summary
 
-- Update the runbook with the log pattern: `md/raid1:md0: Disk failure on sdb1, disabling device`.
-- Add a functional monitoring check that matches the user-visible path.
-- Review recent changes for similar risk on peer systems.
-- Practice the diagnosis in a lab VM so junior administrators can recognize the pattern.
+| Item | Details |
+|---|---|
+| Incident ID | INC-RAID-2026-006 |
+| Environment | Production |
+| Affected Service | RAID Storage Array |
+| Platform | RHEL 9.6 |
+| Duration | 53 Minutes |
+| Status | Resolved |
 
-## Takeaway
+---
 
-The main lesson is that incidents are solved by evidence. A small amount of disciplined collection at the beginning makes the fix faster, the root cause clearer, and the prevention work more realistic.
+# Key Lessons Identified
 
-## Operator Notes
+## RAID Monitoring Must Remain Proactive
 
-Treat Lessons Learned as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+The incident confirmed that RAID degradation alerts provide critical early warning before complete storage failure occurs.
+
+Although the filesystem remained operational, the environment temporarily lost storage redundancy protection.
+
+Operational monitoring must continuously validate:
+
+- RAID synchronization status
+- degraded array conditions
+- mdadm failure events
+- disk health indicators
+
+Required validation command:
+
+```bash
+cat /proc/mdstat
+```
+
+---
+
+## SMART Diagnostics Provide Early Hardware Failure Indicators
+
+SMART diagnostics clearly identified physical disk degradation before complete storage outage occurred.
+
+Critical indicators included:
+
+```text
+Reallocated_Sector_Ct = 392
+Current_Pending_Sector = 81
+Offline_Uncorrectable = 47
+```
+
+Operational procedures should routinely validate SMART health across all production storage devices.
+
+---
+
+## RAID Redundancy Reduces Service Outage Risk
+
+The RAID1 array successfully maintained filesystem availability despite member disk failure.
+
+The incident reinforced the operational value of:
+
+- storage redundancy
+- fault-tolerant design
+- RAID monitoring visibility
+- controlled rebuild procedures
+
+No application outage or filesystem corruption occurred because redundancy controls functioned correctly.
+
+---
+
+## Kernel Logs Are Critical During Storage Failures
+
+Kernel journald logs provided direct visibility into disk failure conditions.
+
+Example validation:
+
+```bash
+journalctl -k
+```
+
+Relevant output:
+
+```text
+md/raid1:md0: Disk failure on sda1, disabling device
+```
+
+Operational teams should always review kernel storage events during RAID investigations.
+
+---
+
+## Controlled Recovery Reduced Operational Risk
+
+Recovery activities focused strictly on replacing the failed disk and rebuilding the array.
+
+The following unnecessary actions were intentionally avoided:
+
+- filesystem restoration
+- operating system reboot
+- emergency storage migration
+- SELinux modifications
+
+Maintaining a controlled recovery scope reduced operational exposure and accelerated rebuild completion.
+
+---
+
+# Operational Improvements
+
+The following operational improvements were identified:
+
+| Improvement Area | Action |
+|---|---|
+| RAID Monitoring | Expand degraded array alert coverage |
+| SMART Validation | Automate SMART health reporting |
+| Storage Operations | Standardize RAID rebuild procedures |
+| Automation | Add RAID validation checks |
+| Documentation | Improve storage recovery runbooks |
+
+---
+
+# Recommendations
+
+## Expand RAID Monitoring
+
+Monitoring controls should include:
+
+- RAID synchronization progress
+- degraded RAID state alerts
+- mdadm rebuild failures
+- storage latency increases
+- SMART disk degradation warnings
+
+Example validation:
+
+```bash
+mdadm --detail /dev/md0
+```
+
+---
+
+## Automate SMART Health Validation
+
+Infrastructure automation should verify:
+
+- SMART health status
+- sector reallocation growth
+- pending sector counts
+- storage hardware degradation trends
+
+Example validation:
+
+```bash
+smartctl -a /dev/sda
+```
+
+Automation-based validation reduces exposure to unexpected storage failures.
+
+---
+
+## Maintain RAID Recovery Procedures
+
+Operational teams should maintain standardized runbooks for:
+
+- degraded RAID response
+- disk replacement procedures
+- mdadm rebuild validation
+- filesystem verification
+- SMART health review
+
+Recovery standardization improves operational consistency during storage incidents.
+
+---
+
+# Operational Takeaways
+
+- RAID monitoring provides critical early failure detection
+- SMART diagnostics offer valuable hardware visibility
+- Storage redundancy significantly reduces outage impact
+- Kernel logs are essential during RAID investigations
+- Controlled rebuild procedures reduce operational risk
+
+---
+
+# Follow-Up Actions
+
+| Action | Owner | Status |
+|---|---|---|
+| Expand RAID monitoring coverage | Monitoring Team | In Progress |
+| Automate SMART reporting | Platform Engineering | Planned |
+| Standardize RAID recovery workflows | Linux Operations | Completed |
+| Update storage recovery runbook | Infrastructure Team | Completed |
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/incident-06-lessons-learned.png)
