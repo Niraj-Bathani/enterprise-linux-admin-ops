@@ -1,27 +1,167 @@
-# Issue Report
+# Incident 07 — NFS Mount Failure
 
-## Summary
+## Executive Summary
 
-Clients cannot mount shared project directory. The issue was reported by the operations team during a normal support window and affected a production-like Linux service managed by `nfs-server`. Initial impact was limited, but the symptom had the potential to block administrative response or customer traffic if left unresolved.
+A production NFS mount failure incident affected application storage access on `rhel9-app03.prod.corp.local`.
 
-## Impact
+The outage occurred after the NFS export configuration on `nfs-storage01.prod.corp.local` restricted client access to an unauthorized subnet. As a result, application servers could not mount the production backup export, causing backup interruptions and storage access failures.
 
-Affected users experienced failed access attempts, delayed work, and repeated retries. The service owner confirmed that no planned maintenance was in progress. The first responder opened a bridge, preserved logs, and avoided restarting unrelated services until evidence was collected.
+Service functionality was restored after correcting export authorization policies and validating client mount access.
 
-## Observed Evidence
+---
+
+# Incident Details
+
+| Item | Details |
+|---|---|
+| Incident ID | INC-NFS-2026-007 |
+| Severity | SEV-2 |
+| Environment | Production |
+| Affected Host | rhel9-app03.prod.corp.local |
+| Operating System | RHEL 9.6 |
+| Service Impacted | NFS Storage Mount |
+| Detection Time | 2026-06-02 09:12 UTC |
+| Resolution Time | 2026-06-02 09:46 UTC |
+| Total Duration | 34 Minutes |
+| Status | Resolved |
+
+---
+
+# Affected Services
+
+The following operational services were impacted during the incident:
+
+- application storage access
+- enterprise backup operations
+- NFS client mount services
+- scheduled backup validation tasks
+
+Primary operating system functionality remained operational throughout the incident.
+
+---
+
+# Detection Method
+
+The incident was detected through:
+
+- backup monitoring alerts
+- failed NFS mount validation
+- application storage alarms
+- Linux operations escalation procedures
+
+Monitoring alert example:
 
 ```text
-mount.nfs: access denied by server while mounting nfs01:/exports/projects
+ALERT: NFSMountFailure
+Host: rhel9-app03.prod.corp.local
+MountPoint: /mnt/prod-backups
+Severity: high
 ```
 
-## Initial Actions
+---
 
-The responder captured `systemctl status nfs-server`, relevant `journalctl` output, network or filesystem state, and recent change records. The case was handled as an operations incident, meaning restoration came first, while root cause notes were preserved for later review.
+# User Impact
 
-## Operator Notes
+Operational impact during the incident included:
 
-Treat Issue Report as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+- failed backup execution
+- delayed storage operations
+- application read/write interruptions
+- elevated operational response activity
 
-## Validation Habit
+Example application error:
 
-A good administrator validates from two directions: the local system state and the client experience. Do not only check that a daemon is active; also test the socket, review the log, and confirm that persistence survives a reboot. This habit prevents temporary fixes from being mistaken for durable operations. Keep commands readable, prefer documented configuration files, and avoid destructive shortcuts unless a backup and rollback plan are already written.
+```text
+mount.nfs: access denied by server while mounting nfs-storage01:/prod-backups
+```
+
+---
+
+# Timeline
+
+| Time (UTC) | Event |
+|---|---|
+| 09:12 | NFS mount alerts triggered |
+| 09:15 | Linux operations team acknowledged incident |
+| 09:18 | Initial NFS diagnostics completed |
+| 09:22 | Export authorization mismatch identified |
+| 09:28 | Export configuration updated |
+| 09:31 | NFS exports reloaded successfully |
+| 09:37 | Client mount restored |
+| 09:46 | Validation checks completed |
+
+---
+
+# Technical Findings
+
+Investigation identified the following conditions:
+
+- NFS services remained operational
+- network connectivity remained healthy
+- firewall configuration remained valid
+- client subnet authorization was missing from `/etc/exports`
+- mount requests were rejected by export access controls
+- SELinux and filesystem integrity remained healthy
+
+Relevant mount error:
+
+```text
+mount.nfs: access denied by server while mounting nfs-storage01:/prod-backups
+```
+
+---
+
+# Root Cause Summary
+
+The outage was caused by incorrect NFS export authorization configuration.
+
+The export policy only permitted access from subnet `10.40.10.0/24`, while the affected application server resided within subnet `10.40.20.0/24`.
+
+As a result:
+
+- NFS mount requests were denied
+- application storage access failed
+- backup operations became unavailable
+- operational storage workflows were interrupted
+
+---
+
+# Recovery Actions
+
+The following recovery actions were completed:
+
+- validated NFS service availability
+- reviewed export authorization configuration
+- updated `/etc/exports` policies
+- reloaded NFS export configuration
+- restored NFS client mounts
+- validated filesystem read/write access
+- confirmed backup service recovery
+
+---
+
+# Validation Results
+
+| Validation Item | Result |
+|---|---|
+| NFS export accessible | PASS |
+| NFS mount restored | PASS |
+| Filesystem read/write operational | PASS |
+| Backup service operational | PASS |
+| Firewall validation passed | PASS |
+| SELinux enforcing | PASS |
+
+---
+
+# Operational Notes
+
+- Recovery activities were limited to export authorization updates
+- No firewall modifications were required
+- No operating system reboot was necessary
+- Filesystem integrity remained healthy throughout recovery
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/incident-07-issue-report.png)
