@@ -1,25 +1,258 @@
-# Root Cause
+# Incident 05 — OOM Killer Triggered HTTPD Failure
 
-## Root Cause Statement
+## Overview
 
-The root cause was PHP workers exceeded memory limits during traffic spike. The condition was introduced by a routine administrative or deployment change that did not include enough validation for the affected service. The technical failure was visible in the log line below, which directly explains the symptom.
+This document provides the root cause analysis (RCA) for the out-of-memory (OOM) incident affecting Apache HTTPD services on `rhel9-web02.prod.corp.local`.
+
+The analysis identifies the technical failure condition, contributing operational factors, impact scope, and corrective actions implemented to restore application stability.
+
+---
+
+# Incident Summary
+
+| Item | Details |
+|---|---|
+| Incident ID | INC-OOM-2026-005 |
+| Severity | SEV-1 |
+| Environment | Production |
+| Affected Host | rhel9-web02.prod.corp.local |
+| Operating System | RHEL 9.6 |
+| Service Impacted | httpd |
+| Duration | 32 Minutes |
+| Status | Resolved |
+
+---
+
+# Incident Description
+
+Production web application services experienced intermittent outages after the Linux kernel OOM killer terminated Apache HTTPD worker processes during sustained memory pressure conditions.
+
+The issue disrupted:
+
+- user-facing web application access
+- internal application endpoints
+- reverse proxy communication
+- application health-check validation
+
+Although the operating system remained operational, excessive memory consumption destabilized Apache service availability.
+
+---
+
+# Detection Summary
+
+The issue was detected through:
+
+- memory utilization monitoring alerts
+- HTTPD service alarms
+- failed application health checks
+- Linux operations escalation procedures
+
+Example monitoring event:
 
 ```text
-kernel: Out of memory: Killed process 3187 (httpd) total-vm:1845200kB
+ALERT: MemoryUsageCritical
+Host: rhel9-web02.prod.corp.local
+Usage: 98%
+Severity: critical
 ```
 
-## Contributing Factors
+---
 
-Contributing factors included incomplete post-change checks, missing alert context, and insufficient runbook detail for the service owner. The issue was not treated as an isolated command failure; it was treated as a process gap around change validation and operational readiness.
+# Technical Investigation
 
-## Detection
+## Memory Utilization Validation
 
-The incident was detected by users or monitoring after the failed state was already active. Earlier detection would have been possible with a health check that validates the real client path rather than only checking process state.
+System memory and swap utilization reached critical thresholds.
 
-## Operator Notes
+```bash
+free -m
+```
 
-Treat Root Cause as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+Output:
 
-## Validation Habit
+```text
+               total        used        free      shared  buff/cache   available
+Mem:           15872       15422         112         244         338         104
+Swap:           4096        4096           0
+```
 
-A good administrator validates from two directions: the local system state and the client experience. Do not only check that a daemon is active; also test the socket, review the log, and confirm that persistence survives a reboot. This habit prevents temporary fixes from being mistaken for durable operations. Keep commands readable, prefer documented configuration files, and avoid destructive shortcuts unless a backup and rollback plan are already written.
+Available memory became critically limited during the incident.
+
+---
+
+## HTTPD Process Analysis
+
+Apache worker processes consumed excessive memory resources.
+
+```bash
+ps aux --sort=-%mem | head
+```
+
+Output:
+
+```text
+apache    4122 18.4 21.8 812344 342118 ? S 18:37 3:22 /usr/sbin/httpd -DFOREGROUND
+apache    4188 17.9 20.9 788224 329744 ? S 18:38 3:10 /usr/sbin/httpd -DFOREGROUND
+```
+
+HTTPD worker memory allocation exceeded expected operational baselines.
+
+---
+
+## Kernel OOM Analysis
+
+Kernel logs confirmed repeated OOM killer activity.
+
+```bash
+journalctl -k -n 20 --no-pager
+```
+
+Output:
+
+```text
+May 24 18:39:41 rhel9-web02 kernel: Out of memory: Killed process 4122 (httpd) score 947
+May 24 18:40:12 rhel9-web02 kernel: Out of memory: Killed process 4188 (httpd) score 932
+```
+
+The Linux kernel terminated Apache worker processes to recover system memory resources.
+
+---
+
+## HTTPD Configuration Validation
+
+Apache worker configuration exceeded available infrastructure capacity.
+
+```bash
+grep -E "MaxRequestWorkers|ServerLimit" \
+/etc/httpd/conf.modules.d/mpm_prefork.conf
+```
+
+Output:
+
+```text
+ServerLimit             512
+MaxRequestWorkers       512
+```
+
+Configured worker limits significantly exceeded recommended baselines for the available system memory.
+
+---
+
+## Load Validation
+
+The server experienced elevated HTTP connection volume during the incident.
+
+```bash
+ss -ant | grep :80 | wc -l
+```
+
+Output:
+
+```text
+1843
+```
+
+Sustained connection growth accelerated memory pressure conditions.
+
+---
+
+# Root Cause
+
+The incident was caused by excessive Apache HTTPD worker allocation under sustained production traffic load.
+
+Configured `MaxRequestWorkers` and `ServerLimit` values exceeded the available system memory capacity, causing:
+
+- critical memory exhaustion
+- full swap utilization
+- sustained memory pressure
+- repeated kernel OOM killer activity
+- Apache worker termination
+
+As a result, application availability became unstable and intermittent HTTP 503 responses occurred.
+
+---
+
+# Contributing Factors
+
+The following operational conditions contributed to the incident:
+
+| Contributing Factor | Impact |
+|---|---|
+| Aggressive Apache worker limits | Excessive memory allocation |
+| Elevated HTTP connection volume | Increased worker utilization |
+| Swap exhaustion | Accelerated system instability |
+| Limited proactive memory alerting | Reduced operational response time |
+
+---
+
+# Impact Assessment
+
+The incident caused the following operational impact:
+
+- intermittent web application outages
+- HTTP 503 responses
+- degraded application responsiveness
+- elevated system load averages
+- increased operational response activity
+
+No operating system kernel panic or filesystem corruption occurred during the incident.
+
+---
+
+# Corrective Actions
+
+The following corrective actions were completed:
+
+- reduced Apache worker limits
+- aligned worker sizing with memory capacity
+- cleared swap pressure
+- restarted HTTPD services
+- validated memory stabilization
+- confirmed application recovery
+
+Updated Apache configuration:
+
+```text
+ServerLimit             128
+MaxRequestWorkers       128
+```
+
+---
+
+# Validation Results
+
+| Validation Item | Status |
+|---|---|
+| HTTPD operational | PASS |
+| Memory utilization stabilized | PASS |
+| Swap utilization reduced | PASS |
+| OOM killer activity stopped | PASS |
+| Application availability restored | PASS |
+
+---
+
+# Preventive Recommendations
+
+The following preventive measures were identified during RCA review:
+
+- standardize Apache worker baselines
+- automate memory baseline validation
+- expand OOM killer monitoring
+- validate memory pressure during load testing
+- improve proactive memory alerting
+
+---
+
+# Final Assessment
+
+The incident originated from application capacity misconfiguration rather than operating system instability or hardware failure.
+
+The operating system, filesystem integrity, SELinux policies, and network services remained healthy throughout the incident lifecycle.
+
+The failure condition was isolated to excessive Apache worker allocation causing sustained memory exhaustion under elevated application traffic.
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/incident-05-root-cause.png)
