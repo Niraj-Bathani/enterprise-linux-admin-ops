@@ -1,24 +1,204 @@
-# Lessons Learned
+# Incident 05 — OOM Killer Triggered HTTPD Failure
 
-## What Went Well
+## Overview
 
-The responder collected logs before making broad changes, focused on the failing layer, and restored service with a targeted action. This reduced risk and preserved evidence for root cause analysis.
+This document captures the operational lessons identified during the investigation and recovery of the out-of-memory (OOM) incident affecting Apache HTTPD services on `rhel9-web02.prod.corp.local`.
 
-## What Could Improve
+The objective is to improve memory monitoring, Apache capacity planning, and operational response procedures across the enterprise Linux infrastructure.
 
-The team needed clearer validation steps for `httpd`. A process being active was not enough evidence that users could complete their workflow. The runbook should show exact commands, expected output, and common log patterns.
+---
 
-## Follow Up Tasks
+# Incident Summary
 
-- Update the runbook with the log pattern: `kernel: Out of memory: Killed process 3187 (httpd) total-vm:1845200kB`.
-- Add a functional monitoring check that matches the user-visible path.
-- Review recent changes for similar risk on peer systems.
-- Practice the diagnosis in a lab VM so junior administrators can recognize the pattern.
+| Item | Details |
+|---|---|
+| Incident ID | INC-OOM-2026-005 |
+| Environment | Production |
+| Affected Service | httpd |
+| Platform | RHEL 9.6 |
+| Duration | 32 Minutes |
+| Status | Resolved |
 
-## Takeaway
+---
 
-The main lesson is that incidents are solved by evidence. A small amount of disciplined collection at the beginning makes the fix faster, the root cause clearer, and the prevention work more realistic.
+# Key Lessons Identified
 
-## Operator Notes
+## Apache Worker Limits Must Match Available Memory
 
-Treat Lessons Learned as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+The incident confirmed that aggressive Apache prefork worker configuration can exhaust production memory resources under sustained traffic conditions.
+
+The following configuration exceeded the available system capacity:
+
+```text
+ServerLimit             512
+MaxRequestWorkers       512
+```
+
+Operational validation must include:
+
+- memory capacity analysis
+- worker-to-memory ratio validation
+- connection volume assessment
+- sustained load testing
+
+---
+
+## Swap Exhaustion Accelerates Service Instability
+
+The outage demonstrated that full swap utilization significantly increased system instability during memory pressure conditions.
+
+Once swap became exhausted:
+
+- kernel OOM activity increased
+- HTTPD worker termination accelerated
+- application responsiveness degraded
+- system load averages increased
+
+Required validation command:
+
+```bash
+free -m
+```
+
+---
+
+## Kernel Logs Provide Critical OOM Diagnostics
+
+Kernel journald entries provided direct visibility into the failure condition.
+
+Example validation:
+
+```bash
+journalctl -k
+```
+
+Relevant log output:
+
+```text
+Out of memory: Killed process 4122 (httpd)
+```
+
+Operational teams should always review kernel logs during memory-related incidents.
+
+---
+
+## Service Availability Depends on Capacity Planning
+
+The incident highlighted the importance of aligning application concurrency limits with infrastructure capacity.
+
+Operational reviews must validate:
+
+- CPU allocation
+- available memory
+- swap capacity
+- concurrent session volume
+- application workload behavior
+
+Capacity planning failures can rapidly affect application availability.
+
+---
+
+## Controlled Recovery Reduced Operational Risk
+
+Recovery activities focused strictly on Apache worker tuning and memory stabilization.
+
+The following unnecessary actions were intentionally avoided:
+
+- kernel parameter tuning
+- operating system reboot
+- SELinux modifications
+- filesystem changes
+
+Maintaining a controlled recovery scope reduced operational exposure and accelerated restoration.
+
+---
+
+# Operational Improvements
+
+The following operational improvements were identified:
+
+| Improvement Area | Action |
+|---|---|
+| Memory Monitoring | Add proactive memory pressure alerts |
+| Capacity Planning | Standardize HTTPD worker sizing |
+| Monitoring | Expand OOM killer alert coverage |
+| Automation | Add memory baseline validation |
+| Documentation | Standardize OOM recovery procedures |
+
+---
+
+# Recommendations
+
+## Expand Memory Monitoring
+
+Monitoring controls should include:
+
+- memory utilization trends
+- swap pressure alerts
+- OOM killer detection
+- Apache worker memory consumption
+- sustained load monitoring
+
+Example validation:
+
+```bash
+vmstat 2 5
+```
+
+---
+
+## Standardize HTTPD Capacity Validation
+
+Operational procedures should validate:
+
+- `MaxRequestWorkers`
+- `ServerLimit`
+- memory utilization during peak traffic
+- concurrent session handling capacity
+
+Example validation:
+
+```bash
+grep -E "MaxRequestWorkers|ServerLimit" \
+/etc/httpd/conf.modules.d/mpm_prefork.conf
+```
+
+---
+
+## Automate Memory Baseline Checks
+
+Infrastructure automation should verify:
+
+- available memory thresholds
+- swap utilization
+- abnormal Apache memory growth
+- sustained load conditions
+
+Automation-based validation reduces operational exposure to memory-related outages.
+
+---
+
+# Operational Takeaways
+
+- Apache worker limits must align with system memory capacity
+- Swap exhaustion significantly increases outage severity
+- Kernel logs provide critical diagnostic visibility
+- Capacity planning directly impacts application stability
+- Controlled recovery procedures reduce operational risk
+
+---
+
+# Follow-Up Actions
+
+| Action | Owner | Status |
+|---|---|---|
+| Implement proactive memory alerts | Monitoring Team | In Progress |
+| Standardize HTTPD worker baselines | Platform Engineering | Planned |
+| Expand OOM monitoring coverage | Linux Operations | Completed |
+| Update OOM recovery runbook | Infrastructure Team | Completed |
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/incident-05-lessons-learned.png)
