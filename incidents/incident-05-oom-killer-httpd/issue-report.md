@@ -1,27 +1,168 @@
-# Issue Report
+# Incident 05 — OOM Killer Triggered HTTPD Failure
 
-## Summary
+## Executive Summary
 
-Web requests intermittently fail and worker processes disappear. The issue was reported by the operations team during a normal support window and affected a production-like Linux service managed by `httpd`. Initial impact was limited, but the symptom had the potential to block administrative response or customer traffic if left unresolved.
+A production out-of-memory (OOM) incident affected Apache HTTPD services on `rhel9-web02.prod.corp.local`.
 
-## Impact
+The outage occurred after excessive Apache worker memory consumption exhausted available system memory and swap resources. The Linux kernel OOM killer repeatedly terminated HTTPD worker processes, causing intermittent application outages and HTTP 503 responses.
 
-Affected users experienced failed access attempts, delayed work, and repeated retries. The service owner confirmed that no planned maintenance was in progress. The first responder opened a bridge, preserved logs, and avoided restarting unrelated services until evidence was collected.
+Service functionality was restored after tuning Apache worker limits, stabilizing memory utilization, and validating application availability.
 
-## Observed Evidence
+---
+
+# Incident Details
+
+| Item | Details |
+|---|---|
+| Incident ID | INC-OOM-2026-005 |
+| Severity | SEV-1 |
+| Environment | Production |
+| Affected Host | rhel9-web02.prod.corp.local |
+| Operating System | RHEL 9.6 |
+| Service Impacted | httpd |
+| Detection Time | 2026-05-24 18:42 UTC |
+| Resolution Time | 2026-05-24 19:14 UTC |
+| Total Duration | 32 Minutes |
+| Status | Resolved |
+
+---
+
+# Affected Services
+
+The following operational services were impacted during the incident:
+
+- Apache HTTPD web services
+- internal application endpoints
+- application health-check validation
+- reverse proxy connectivity
+- user-facing web requests
+
+Core operating system services remained operational throughout the outage.
+
+---
+
+# Detection Method
+
+The incident was detected through:
+
+- memory utilization monitoring alerts
+- Apache HTTPD service alarms
+- failed application health checks
+- Linux operations escalation procedures
+
+Monitoring alert example:
 
 ```text
-kernel: Out of memory: Killed process 3187 (httpd) total-vm:1845200kB
+ALERT: MemoryUsageCritical
+Host: rhel9-web02.prod.corp.local
+Usage: 98%
+Severity: critical
 ```
 
-## Initial Actions
+---
 
-The responder captured `systemctl status httpd`, relevant `journalctl` output, network or filesystem state, and recent change records. The case was handled as an operations incident, meaning restoration came first, while root cause notes were preserved for later review.
+# User Impact
 
-## Operator Notes
+Operational impact during the incident included:
 
-Treat Issue Report as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+- intermittent HTTP 503 responses
+- degraded web application performance
+- delayed application responses
+- failed user session requests
+- increased operational response activity
 
-## Validation Habit
+Example application error:
 
-A good administrator validates from two directions: the local system state and the client experience. Do not only check that a daemon is active; also test the socket, review the log, and confirm that persistence survives a reboot. This habit prevents temporary fixes from being mistaken for durable operations. Keep commands readable, prefer documented configuration files, and avoid destructive shortcuts unless a backup and rollback plan are already written.
+```text
+HTTP/1.1 503 Service Unavailable
+```
+
+---
+
+# Timeline
+
+| Time (UTC) | Event |
+|---|---|
+| 18:42 | Memory utilization alerts triggered |
+| 18:44 | Linux operations team acknowledged incident |
+| 18:47 | Initial memory diagnostics completed |
+| 18:50 | Kernel OOM killer activity confirmed |
+| 18:55 | Apache worker configuration reviewed |
+| 19:01 | HTTPD worker limits reduced |
+| 19:06 | HTTPD service restarted successfully |
+| 19:14 | Memory and application validation completed |
+
+---
+
+# Technical Findings
+
+Investigation identified the following conditions:
+
+- system memory utilization exceeded 98%
+- swap space became fully exhausted
+- kernel OOM killer terminated Apache worker processes
+- HTTPD worker limits exceeded operational memory capacity
+- elevated HTTP connection volume increased memory pressure
+- SELinux and filesystem resources remained healthy
+
+Relevant kernel log output:
+
+```text
+Out of memory: Killed process 4122 (httpd) score 947
+```
+
+---
+
+# Root Cause Summary
+
+The outage was caused by excessive Apache HTTPD worker allocation under sustained application load.
+
+Configured `MaxRequestWorkers` and `ServerLimit` values exceeded the available system memory capacity, causing memory exhaustion during elevated HTTP connection activity.
+
+As a result:
+
+- system memory utilization reached critical levels
+- swap space became exhausted
+- kernel OOM killer terminated HTTPD worker processes
+- application availability became unstable
+
+---
+
+# Recovery Actions
+
+The following recovery actions were completed:
+
+- backed up Apache configuration
+- reduced Apache worker limits
+- cleared swap pressure
+- restarted HTTPD services
+- validated memory stabilization
+- confirmed application availability restoration
+- verified absence of additional OOM events
+
+---
+
+# Validation Results
+
+| Validation Item | Result |
+|---|---|
+| HTTPD operational | PASS |
+| Memory utilization stabilized | PASS |
+| Swap utilization normalized | PASS |
+| OOM killer activity stopped | PASS |
+| Application availability restored | PASS |
+
+---
+
+# Operational Notes
+
+- Recovery activities were limited to Apache tuning and memory stabilization
+- No kernel tuning changes were required
+- SELinux remained enabled throughout recovery operations
+- Application recovery completed without filesystem corruption
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/incident-05-issue-report.png)
