@@ -1,21 +1,226 @@
-# Prevention
+# Incident 04 — Disk Space Exhaustion
 
-## Preventive Measures
+## Overview
 
-To prevent recurrence, add a pre-change and post-change checklist for `filesystem`. The checklist should include configuration syntax validation, service restart or reload behavior, log review, firewall and SELinux checks where applicable, and one client-side functional test.
+This document defines the preventive controls and operational safeguards implemented after the disk space exhaustion incident on `rhel9-db01.prod.corp.local`.
 
-## Monitoring
+The objective is to reduce the likelihood of future filesystem exhaustion events caused by uncontrolled log growth and failed maintenance operations within the enterprise Linux infrastructure.
 
-Create alerts for the symptom, not only the daemon state. Useful alerts include repeated authentication or mount failures, failed health checks, degraded arrays, high memory pressure, disk capacity thresholds, or service port conflicts depending on the service. Alerts should include the hostname, service name, recent log excerpt, and a link to the runbook.
+---
 
-## Operational Control
+# Incident Summary
 
-Require changes to include rollback instructions. Store configuration in version control, use peer review for risky service changes, and record exceptions with expiration dates. Preventive work is successful only when the next responder can identify the same failure faster and with less uncertainty.
+| Item | Details |
+|---|---|
+| Incident ID | INC-DISK-2026-004 |
+| Environment | Production |
+| Affected Service | Database Storage |
+| Platform | RHEL 9.6 |
+| Root Cause Category | Failed Log Rotation |
+| Status | Preventive Controls Implemented |
 
-## Operator Notes
+---
 
-Treat Prevention as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+# Preventive Objectives
 
-## Validation Habit
+The following preventive objectives were established after the incident:
 
-A good administrator validates from two directions: the local system state and the client experience. Do not only check that a daemon is active; also test the socket, review the log, and confirm that persistence survives a reboot. This habit prevents temporary fixes from being mistaken for durable operations. Keep commands readable, prefer documented configuration files, and avoid destructive shortcuts unless a backup and rollback plan are already written.
+- Improve filesystem utilization monitoring
+- Strengthen log management validation
+- Prevent permission drift on system directories
+- Standardize storage recovery workflows
+- Automate large file detection procedures
+
+---
+
+# Filesystem Monitoring Controls
+
+## Implement Proactive Filesystem Alerts
+
+Monitoring thresholds were updated to provide earlier operational visibility.
+
+Configured thresholds:
+
+| Utilization Level | Alert Severity |
+|---|---|
+| 75% | Warning |
+| 85% | High |
+| 90% | Critical |
+
+Required validation command:
+
+```bash
+df -h
+```
+
+Monitoring systems must continuously validate filesystem growth trends.
+
+---
+
+## Automate Large File Detection
+
+Automated checks were implemented to identify abnormal log growth.
+
+Example validation:
+
+```bash
+find /var/log -type f -size +1G
+```
+
+Monitoring alerts now trigger when log files exceed approved operational thresholds.
+
+---
+
+# Log Management Improvements
+
+## Enforce Logrotate Validation
+
+All production systems must validate logrotate execution regularly.
+
+Validation command:
+
+```bash
+logrotate -d /etc/logrotate.conf
+```
+
+Example successful output:
+
+```text
+Handling 8 logs
+rotating pattern: /var/log/messages
+```
+
+Operational procedures now require monthly validation of log rotation status.
+
+---
+
+## Standardize Log Retention Policies
+
+The following controls were implemented:
+
+- compressed archive retention limits
+- automated stale log cleanup
+- centralized log forwarding validation
+- scheduled log rotation verification
+
+Example cleanup procedure:
+
+```bash
+find /var/log -type f -name "*.gz" -mtime +30 -delete
+```
+
+---
+
+# Security Baseline Controls
+
+## Prevent Permission Drift
+
+Operational compliance checks now validate critical directory permissions.
+
+Required validation:
+
+```bash
+ls -ld /var/log
+```
+
+Approved permission baseline:
+
+```text
+drwxr-xr-x. root root /var/log
+```
+
+Unauthorized permission modifications generate compliance alerts automatically.
+
+---
+
+## Maintain SELinux Enforcement
+
+SELinux enforcement remains mandatory for all production systems.
+
+Validation command:
+
+```bash
+getenforce
+```
+
+Expected result:
+
+```text
+Enforcing
+```
+
+SELinux must not be disabled during storage-related recovery procedures unless formally approved.
+
+---
+
+# Operational Safeguards
+
+## Restrict Emergency Storage Modifications
+
+The following actions are prohibited during standard incident recovery unless formally approved:
+
+- uncontrolled log deletion
+- disabling logging services
+- disabling SELinux
+- unauthorized filesystem expansion
+- database file manipulation
+
+Recovery activities must remain limited to validated operational procedures.
+
+---
+
+## Maintain Standardized Storage Recovery Procedures
+
+The Linux operations team implemented standardized runbooks for:
+
+- filesystem exhaustion incidents
+- log growth investigations
+- logrotate troubleshooting
+- database storage recovery
+- filesystem cleanup validation
+
+Operational procedures are maintained within the enterprise support knowledge base.
+
+---
+
+# Validation Requirements
+
+The following validation checklist must be completed after filesystem maintenance activities:
+
+| Validation Item | Requirement |
+|---|---|
+| Filesystem utilization validation | Mandatory |
+| Logrotate execution validation | Mandatory |
+| Directory permission verification | Mandatory |
+| Database service validation | Mandatory |
+| Large log file inspection | Mandatory |
+| SELinux validation | Mandatory |
+
+---
+
+# Preventive Measures Implemented
+
+| Preventive Control | Status |
+|---|---|
+| Proactive filesystem monitoring | Implemented |
+| Automated large file detection | Implemented |
+| Logrotate validation checks | Implemented |
+| Permission compliance monitoring | Implemented |
+| Storage recovery runbooks | Implemented |
+| Log retention cleanup automation | Implemented |
+
+---
+
+# Operational Recommendations
+
+- Monitor filesystem growth trends continuously
+- Validate logrotate execution regularly
+- Review critical directory permissions routinely
+- Maintain centralized logging visibility
+- Automate storage health validation workflows
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/incident-04-prevention.png)
