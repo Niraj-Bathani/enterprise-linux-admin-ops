@@ -1,21 +1,234 @@
-# Prevention
+# Incident 07 — NFS Mount Failure
 
-## Preventive Measures
+## Overview
 
-To prevent recurrence, add a pre-change and post-change checklist for `nfs-server`. The checklist should include configuration syntax validation, service restart or reload behavior, log review, firewall and SELinux checks where applicable, and one client-side functional test.
+This document defines the preventive controls and operational safeguards implemented after the NFS mount failure incident affecting `rhel9-app03.prod.corp.local`.
 
-## Monitoring
+The objective is to reduce the likelihood of future NFS authorization failures and improve storage access visibility across the enterprise Linux infrastructure.
 
-Create alerts for the symptom, not only the daemon state. Useful alerts include repeated authentication or mount failures, failed health checks, degraded arrays, high memory pressure, disk capacity thresholds, or service port conflicts depending on the service. Alerts should include the hostname, service name, recent log excerpt, and a link to the runbook.
+---
 
-## Operational Control
+# Incident Summary
 
-Require changes to include rollback instructions. Store configuration in version control, use peer review for risky service changes, and record exceptions with expiration dates. Preventive work is successful only when the next responder can identify the same failure faster and with less uncertainty.
+| Item | Details |
+|---|---|
+| Incident ID | INC-NFS-2026-007 |
+| Environment | Production |
+| Affected Service | NFS Storage Mount |
+| Platform | RHEL 9.6 |
+| Root Cause Category | Export Authorization Misconfiguration |
+| Status | Preventive Controls Implemented |
 
-## Operator Notes
+---
 
-Treat Prevention as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+# Preventive Objectives
 
-## Validation Habit
+The following preventive objectives were established after the incident:
 
-A good administrator validates from two directions: the local system state and the client experience. Do not only check that a daemon is active; also test the socket, review the log, and confirm that persistence survives a reboot. This habit prevents temporary fixes from being mistaken for durable operations. Keep commands readable, prefer documented configuration files, and avoid destructive shortcuts unless a backup and rollback plan are already written.
+- improve NFS export validation
+- standardize subnet authorization controls
+- automate storage access verification
+- reduce export configuration drift
+- strengthen operational recovery procedures
+
+---
+
+# Export Authorization Controls
+
+## Standardize Export Policy Validation
+
+Operational procedures now require validation of:
+
+- authorized client subnets
+- production network alignment
+- application storage dependencies
+- backup infrastructure access
+- export access consistency
+
+Example validation command:
+
+```bash
+showmount -e nfs-storage01.prod.corp.local
+```
+
+Export validation must be completed before production deployment approval.
+
+---
+
+## Automate Export Configuration Audits
+
+Infrastructure automation now validates:
+
+- subnet authorization mismatches
+- stale export entries
+- unauthorized network exclusions
+- failed NFS mount attempts
+- export configuration drift
+
+Example validation:
+
+```bash
+cat /etc/exports
+```
+
+Automation-based checks reduce operational exposure to export misconfiguration.
+
+---
+
+# NFS Monitoring Controls
+
+## Expand NFS Mount Monitoring
+
+Monitoring coverage was expanded for:
+
+- failed NFS mount attempts
+- stale file handle events
+- export authorization failures
+- backup storage interruptions
+- application storage latency
+
+Example validation command:
+
+```bash
+mount | grep nfs
+```
+
+Operational alerts now trigger immediately when NFS mounts become unavailable.
+
+---
+
+## Implement RPC Service Validation
+
+Operational monitoring now validates:
+
+- NFS RPC availability
+- mountd service status
+- NFS protocol responsiveness
+- export visibility
+- client mount accessibility
+
+Example validation:
+
+```bash
+rpcinfo -p nfs-storage01.prod.corp.local
+```
+
+---
+
+# Recovery Workflow Controls
+
+## Maintain Standardized NFS Recovery Procedures
+
+The Linux operations team implemented standardized runbooks for:
+
+- NFS export validation
+- client authorization review
+- mount troubleshooting
+- RPC diagnostics
+- post-recovery filesystem verification
+
+Operational procedures are maintained within the enterprise support knowledge base.
+
+---
+
+## Restrict Unnecessary Recovery Actions
+
+The following actions are prohibited during standard NFS recovery unless formally approved:
+
+- disabling SELinux
+- emergency firewall modifications
+- uncontrolled export changes
+- unnecessary operating system reboot
+- forced filesystem recovery procedures
+
+Recovery activities must remain limited to validated operational procedures.
+
+---
+
+# Filesystem Validation Controls
+
+## Validate Read/Write Operations After Recovery
+
+Operational procedures now require validation of:
+
+- mount accessibility
+- filesystem write operations
+- application storage access
+- backup service functionality
+- stale file handle conditions
+
+Example validation commands:
+
+```bash
+touch /mnt/prod-backups/testfile
+```
+
+```bash
+rm -f /mnt/prod-backups/testfile
+```
+
+---
+
+# SELinux and Security Controls
+
+## Maintain SELinux Enforcement
+
+SELinux enforcement remains mandatory during all NFS recovery operations.
+
+Validation command:
+
+```bash
+getenforce
+```
+
+Expected result:
+
+```text
+Enforcing
+```
+
+SELinux must not be disabled during storage troubleshooting unless formally approved.
+
+---
+
+# Validation Requirements
+
+The following validation checklist must be completed after NFS maintenance activities:
+
+| Validation Item | Requirement |
+|---|---|
+| Export authorization review | Mandatory |
+| NFS mount validation | Mandatory |
+| RPC service verification | Mandatory |
+| Filesystem read/write validation | Mandatory |
+| Backup service validation | Mandatory |
+| SELinux validation | Mandatory |
+
+---
+
+# Preventive Measures Implemented
+
+| Preventive Control | Status |
+|---|---|
+| Export validation automation | Implemented |
+| NFS monitoring expansion | Implemented |
+| RPC validation checks | Implemented |
+| Recovery runbook standardization | Implemented |
+| Filesystem validation procedures | Implemented |
+| Storage operational safeguards | Implemented |
+
+---
+
+# Operational Recommendations
+
+- validate export authorization before deployment changes
+- automate subnet authorization reviews
+- monitor NFS mount health continuously
+- validate backup storage dependencies regularly
+- standardize NFS operational procedures
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/incident-07-prevention.png)
