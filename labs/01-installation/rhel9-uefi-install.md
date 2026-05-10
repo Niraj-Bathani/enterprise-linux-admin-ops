@@ -1,46 +1,339 @@
-# Rhel9 UEFI Install
+# RHEL 9 UEFI Installation Workflow
 
-## Objective
+## Overview
 
-In this lab you will practice rhel9 uefi install on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This document covers enterprise-style RHEL 9 installation procedures using UEFI firmware configuration within VMware and KVM virtualization environments.
 
-## Prerequisites
+The workflow follows operational deployment standards commonly used for enterprise Linux infrastructure provisioning.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `efibootmgr -v` and record the output in your lab notes.
-2. Run `grub2-mkconfig -o /boot/grub2/grub.cfg` and record the output in your lab notes.
-3. Run `dracut -f` and record the output in your lab notes.
-4. Run `lsinitrd /boot/initramfs-$(uname -r).img | head` and record the output in your lab notes.
-5. Run `journalctl -b -1 -p warning` and record the output in your lab notes.
+Install and configure RHEL 9 using:
 
-Example command sequence:
+- UEFI boot mode
+- XFS filesystem layout
+- static network configuration
+- enterprise host naming
+- SELinux enforcement
+- firewalld service enablement
+- OpenSSH administration access
 
-```bash
-efibootmgr -v
-grub2-mkconfig -o /boot/grub2/grub.cfg
-dracut -f
-lsinitrd /boot/initramfs-$(uname -r).img | head
-journalctl -b -1 -p warning
+---
+
+# Environment Information
+
+| Item | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Firmware | UEFI |
+| Hypervisor | VMware / KVM |
+| Filesystem | XFS |
+| Bootloader | GRUB2 |
+| SELinux | Enforcing |
+| Firewall | firewalld enabled |
+
+---
+
+# Installation Configuration
+
+## Virtual Machine Details
+
+| Setting | Value |
+|---|---|
+| VM Name | rhel9-admin01 |
+| Hostname | rhel9-admin01.prod.lab |
+| CPU | 2 vCPU |
+| Memory | 4 GB |
+| Disk | 40 GB |
+| Network Adapter | VMXNET3 |
+| IP Address | 192.168.100.30 |
+
+---
+
+# Boot Process
+
+## Attach RHEL 9 ISO
+
+Example installation media:
+
+```text
+rhel-9.6-x86_64-dvd.iso
 ```
 
-## Expected Output
+---
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+## Boot Using UEFI Firmware
 
-## Validation
+During VM startup verify:
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+- UEFI firmware initialization
+- GRUB2 boot menu
+- installer media detection
 
-## Cleanup
+Example boot menu entry:
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+```text
+Install Red Hat Enterprise Linux 9.6
+```
 
-## Operator Notes
+---
 
-Treat Rhel9 UEFI Install as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+# Installer Configuration
+
+## Configure Installation Source
+
+Installation source:
+
+```text
+Local ISO Media
+```
+
+---
+
+## Configure Keyboard and Language
+
+Example:
+
+```text
+Language : English (United States)
+Keyboard : US
+```
+
+---
+
+## Configure Network Settings
+
+Example static configuration:
+
+```text
+IP Address : 192.168.100.30
+Netmask    : 255.255.255.0
+Gateway    : 192.168.100.1
+DNS        : 192.168.100.10
+Hostname   : rhel9-admin01.prod.lab
+```
+
+---
+
+## Verify Network Connectivity
+
+Within installer shell:
+
+```bash
+ping -c 4 8.8.8.8
+```
+
+Expected output:
+
+```text
+4 packets transmitted, 4 received
+```
+
+---
+
+# Storage Configuration
+
+## Configure Disk Layout
+
+Recommended layout:
+
+| Mount Point | Size |
+|---|---|
+| /boot/efi | 600 MB |
+| /boot | 1 GB |
+| / | 30 GB |
+| swap | 4 GB |
+
+Filesystem:
+
+```text
+XFS
+```
+
+---
+
+## Verify Disk Detection
+
+```bash
+lsblk
+```
+
+Expected output:
+
+```text
+sda      8:0    0   40G  0 disk
+```
+
+---
+
+# Software Selection
+
+## Installation Profile
+
+Use the following software profile:
+
+```text
+Minimal Install
+```
+
+Additional packages:
+
+- OpenSSH Server
+- chrony
+- vim-enhanced
+- bash-completion
+
+---
+
+# User Configuration
+
+## Configure Root Password
+
+Set enterprise-compliant root password policy.
+
+Example:
+
+```text
+Minimum Length : 12 Characters
+```
+
+---
+
+## Create Administrative User
+
+Example account:
+
+```text
+Username : adminops
+Groups   : wheel
+```
+
+---
+
+# Post-Install Validation
+
+## Verify Operating System
+
+```bash
+cat /etc/redhat-release
+```
+
+Expected output:
+
+```text
+Red Hat Enterprise Linux release 9.6 (Plow)
+```
+
+---
+
+## Verify UEFI Boot Mode
+
+```bash
+ls /sys/firmware/efi
+```
+
+Expected output:
+
+```text
+efivars
+```
+
+---
+
+## Verify Hostname
+
+```bash
+hostnamectl
+```
+
+Expected output:
+
+```text
+Static hostname: rhel9-admin01.prod.lab
+```
+
+---
+
+## Verify SELinux Status
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+## Verify Firewall Status
+
+```bash
+systemctl status firewalld
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+---
+
+## Verify SSH Service
+
+```bash
+systemctl status sshd
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+---
+
+## Verify Time Synchronization
+
+```bash
+timedatectl
+```
+
+Expected output:
+
+```text
+System clock synchronized: yes
+```
+
+---
+
+# Operational Notes
+
+- UEFI firmware is standardized across enterprise deployments
+- XFS remains the default enterprise filesystem
+- SELinux remains enabled during all installation phases
+- Minimal package profiles reduce attack surface exposure
+- SSH administration access is required for all future labs
+
+---
+
+# Expected Outcome
+
+After completing this workflow:
+
+- RHEL 9 installation is operational
+- UEFI boot configuration is validated
+- enterprise networking is configured
+- administrative access is available
+- baseline operational standards are applied
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/01-installation-rhel9-uefi-install.png)
