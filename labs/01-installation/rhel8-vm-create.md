@@ -1,46 +1,294 @@
-# Rhel8 Vm Create
+# RHEL 8 Virtual Machine Provisioning
 
-## Objective
+## Overview
 
-In this lab you will practice rhel8 vm create on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This document covers enterprise-style RHEL 8 virtual machine provisioning procedures used for Linux administration and infrastructure operations labs.
 
-## Prerequisites
+The workflow simulates production virtualization deployment standards within VMware and KVM-based enterprise environments.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `pwd` and record the output in your lab notes.
-2. Run `ls -lah /etc` and record the output in your lab notes.
-3. Run `find /var/log -maxdepth 1 -type f` and record the output in your lab notes.
-4. Run `df -hT` and record the output in your lab notes.
-5. Run `du -sh /var/log/* | sort -h` and record the output in your lab notes.
+Provision a standardized RHEL 8 virtual machine with:
 
-Example command sequence:
+- enterprise baseline configuration
+- UEFI firmware
+- static networking
+- XFS filesystem layout
+- OpenSSH access
+- SELinux enforcement
+- firewalld enabled
 
-```bash
-pwd
-ls -lah /etc
-find /var/log -maxdepth 1 -type f
-df -hT
-du -sh /var/log/* | sort -h
+---
+
+# Environment Information
+
+| Item | Details |
+|---|---|
+| Hypervisor | VMware Workstation / ESXi |
+| Guest OS | RHEL 8 |
+| Firmware | UEFI |
+| CPU | 2 vCPU |
+| Memory | 4 GB |
+| Disk | 40 GB |
+| Filesystem | XFS |
+| Network Adapter | VMXNET3 |
+
+---
+
+# VM Configuration
+
+## Virtual Machine Specifications
+
+| Setting | Value |
+|---|---|
+| VM Name | rhel8-admin01 |
+| Hostname | rhel8-admin01.prod.lab |
+| IP Address | 192.168.100.20 |
+| Gateway | 192.168.100.1 |
+| DNS Server | 192.168.100.10 |
+| Domain | prod.lab |
+
+---
+
+# VMware VM Creation
+
+## Create New Virtual Machine
+
+Provision a new virtual machine using:
+
+- custom configuration
+- UEFI firmware
+- VMXNET3 network adapter
+- SCSI virtual disk
+- bridged or NAT networking
+
+---
+
+## Attach Installation ISO
+
+Attach the official RHEL 8 installation ISO image.
+
+Example:
+
+```text
+rhel-8.10-x86_64-dvd.iso
 ```
 
-## Expected Output
+---
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+## Configure Virtual Hardware
 
-## Validation
+Recommended allocation:
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+```text
+vCPU: 2
+RAM: 4096 MB
+Disk: 40 GB Thin Provisioned
+Firmware: UEFI
+```
 
-## Cleanup
+---
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+# Initial Boot Validation
 
-## Operator Notes
+## Power On Virtual Machine
 
-Treat Rhel8 Vm Create as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+Validate successful VM boot sequence.
+
+Expected boot stages:
+
+- VMware BIOS/UEFI initialization
+- GRUB menu
+- RHEL installer startup
+
+---
+
+## Verify Virtual Disk Detection
+
+During installer initialization:
+
+```bash
+lsblk
+```
+
+Expected output:
+
+```text
+sda      8:0    0   40G  0 disk
+```
+
+---
+
+# Network Configuration
+
+## Configure Static IP Address
+
+Example configuration:
+
+```text
+IP Address : 192.168.100.20
+Netmask    : 255.255.255.0
+Gateway    : 192.168.100.1
+DNS        : 192.168.100.10
+```
+
+---
+
+## Verify Network Adapter
+
+```bash
+ip addr
+```
+
+Expected output:
+
+```text
+ens160
+```
+
+---
+
+# Storage Layout
+
+## Recommended Partition Structure
+
+| Mount Point | Size |
+|---|---|
+| /boot | 1 GB |
+| / | 30 GB |
+| swap | 4 GB |
+
+Filesystem type:
+
+```text
+XFS
+```
+
+---
+
+# Package Selection
+
+## Installation Profile
+
+Use the following software selection:
+
+```text
+Minimal Install
+```
+
+Additional packages:
+
+- OpenSSH Server
+- chrony
+- vim
+- bash-completion
+
+---
+
+# Post-Provision Validation
+
+## Verify Operating System
+
+```bash
+cat /etc/redhat-release
+```
+
+Expected output:
+
+```text
+Red Hat Enterprise Linux release 8.10 (Ootpa)
+```
+
+---
+
+## Verify Hostname
+
+```bash
+hostnamectl
+```
+
+Expected output:
+
+```text
+Static hostname: rhel8-admin01.prod.lab
+```
+
+---
+
+## Verify Network Connectivity
+
+```bash
+ping -c 4 8.8.8.8
+```
+
+---
+
+## Verify SELinux Status
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+## Verify Firewall Status
+
+```bash
+systemctl status firewalld
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+---
+
+## Verify SSH Service
+
+```bash
+systemctl status sshd
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+---
+
+# Operational Notes
+
+- Minimal installation reduces unnecessary package exposure
+- UEFI firmware aligns with enterprise virtualization standards
+- XFS remains the standard enterprise filesystem
+- SELinux remains enabled throughout provisioning
+- SSH access is required for all future administration labs
+
+---
+
+# Expected Outcome
+
+After completing this workflow:
+
+- the RHEL 8 VM is operational
+- enterprise networking is configured
+- SSH administration access is available
+- security baselines are applied
+- the system is ready for operational labs
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/01-installation-rhel8-vm-create.png)
