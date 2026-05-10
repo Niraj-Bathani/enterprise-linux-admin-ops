@@ -1,27 +1,166 @@
-# Issue Report
+# Incident 06 — RAID Degraded State
 
-## Summary
+## Executive Summary
 
-Storage alert reports RAID array degraded. The issue was reported by the operations team during a normal support window and affected a production-like Linux service managed by `mdadm`. Initial impact was limited, but the symptom had the potential to block administrative response or customer traffic if left unresolved.
+A production RAID degradation incident affected storage redundancy on `rhel9-storage01.prod.corp.local`.
 
-## Impact
+The incident occurred after a member disk failure caused the RAID1 array to enter degraded operational state. Although filesystem availability remained operational, the environment temporarily lost storage fault tolerance and redundancy protection.
 
-Affected users experienced failed access attempts, delayed work, and repeated retries. The service owner confirmed that no planned maintenance was in progress. The first responder opened a bridge, preserved logs, and avoided restarting unrelated services until evidence was collected.
+Service integrity was restored after replacement of the failed disk and successful RAID rebuild completion.
 
-## Observed Evidence
+---
+
+# Incident Details
+
+| Item | Details |
+|---|---|
+| Incident ID | INC-RAID-2026-006 |
+| Severity | SEV-2 |
+| Environment | Production |
+| Affected Host | rhel9-storage01.prod.corp.local |
+| Operating System | RHEL 9.6 |
+| Service Impacted | RAID Storage Array |
+| Detection Time | 2026-05-28 01:18 UTC |
+| Resolution Time | 2026-05-28 02:11 UTC |
+| Total Duration | 53 Minutes |
+| Status | Resolved |
+
+---
+
+# Affected Services
+
+The following operational components were impacted during the incident:
+
+- RAID1 storage redundancy
+- disk fault tolerance protection
+- storage monitoring operations
+- storage performance stability
+
+Primary filesystem availability remained operational throughout the incident.
+
+---
+
+# Detection Method
+
+The incident was detected through:
+
+- RAID monitoring alerts
+- mdadm degradation events
+- SMART hardware failure notifications
+- Linux operations escalation procedures
+
+Monitoring alert example:
 
 ```text
-md/raid1:md0: Disk failure on sdb1, disabling device
+ALERT: RAIDArrayDegraded
+Host: rhel9-storage01.prod.corp.local
+Array: /dev/md0
+Severity: high
 ```
 
-## Initial Actions
+---
 
-The responder captured `systemctl status mdadm`, relevant `journalctl` output, network or filesystem state, and recent change records. The case was handled as an operations incident, meaning restoration came first, while root cause notes were preserved for later review.
+# User Impact
 
-## Operator Notes
+Operational impact during the incident included:
 
-Treat Issue Report as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+- temporary loss of RAID redundancy
+- increased storage risk exposure
+- elevated disk I/O latency
+- increased infrastructure monitoring activity
 
-## Validation Habit
+No application outage or filesystem corruption occurred during the incident window.
 
-A good administrator validates from two directions: the local system state and the client experience. Do not only check that a daemon is active; also test the socket, review the log, and confirm that persistence survives a reboot. This habit prevents temporary fixes from being mistaken for durable operations. Keep commands readable, prefer documented configuration files, and avoid destructive shortcuts unless a backup and rollback plan are already written.
+---
+
+# Timeline
+
+| Time (UTC) | Event |
+|---|---|
+| 01:18 | RAID degradation alerts triggered |
+| 01:20 | Linux operations team acknowledged incident |
+| 01:24 | RAID diagnostics completed |
+| 01:27 | SMART hardware failure confirmed |
+| 01:34 | Failed RAID member removed |
+| 01:42 | Replacement disk provisioned |
+| 01:48 | RAID rebuild initiated |
+| 02:11 | RAID synchronization completed |
+
+---
+
+# Technical Findings
+
+Investigation identified the following conditions:
+
+- RAID1 array entered degraded state
+- member disk `/dev/sda1` failed
+- SMART diagnostics reported hardware failure indicators
+- storage redundancy became unavailable
+- filesystem integrity remained healthy
+- operating system services remained operational
+
+Relevant kernel log output:
+
+```text
+md/raid1:md0: Disk failure on sda1, disabling device
+```
+
+---
+
+# Root Cause Summary
+
+The outage was caused by physical hardware failure of RAID member disk `/dev/sda1`.
+
+SMART diagnostics confirmed severe disk degradation, including:
+
+- reallocated sector growth
+- pending sector failures
+- uncorrectable offline sectors
+
+As a result:
+
+- RAID redundancy was lost
+- the array entered degraded operational state
+- storage fault tolerance became unavailable
+- operational storage risk increased
+
+---
+
+# Recovery Actions
+
+The following recovery actions were completed:
+
+- validated RAID degraded status
+- removed failed RAID member
+- replaced failed disk in VMware infrastructure
+- recreated RAID partition layout
+- added replacement disk to RAID array
+- monitored RAID synchronization
+- validated filesystem and SMART health
+
+---
+
+# Validation Results
+
+| Validation Item | Result |
+|---|---|
+| RAID rebuild completed | PASS |
+| RAID redundancy restored | PASS |
+| Filesystem operational | PASS |
+| SMART validation passed | PASS |
+| Storage services operational | PASS |
+
+---
+
+# Operational Notes
+
+- Recovery activities were limited to RAID rebuild procedures
+- No filesystem recovery operations were required
+- No operating system reboot was necessary
+- Storage remained available throughout rebuild activities
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/incident-06-issue-report.png)
