@@ -1,46 +1,518 @@
-# Static Routes
+# Static Route Configuration
 
-## Objective
+## Overview
 
-In this lab you will practice static routes on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates enterprise Linux static route configuration on RHEL 9 systems.
 
-## Prerequisites
+The workflow simulates production routing scenarios involving custom network paths, gateway management, persistent route configuration, and enterprise traffic engineering.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `ip addr show` and record the output in your lab notes.
-2. Run `ip route show` and record the output in your lab notes.
-3. Run `nmcli device status` and record the output in your lab notes.
-4. Run `nmcli connection show` and record the output in your lab notes.
-5. Run `ss -tulpen` and record the output in your lab notes.
+This exercise covers:
 
-Example command sequence:
+- static route configuration
+- custom gateway management
+- route persistence
+- traffic path validation
+- NetworkManager route administration
+- routing troubleshooting
+- enterprise network routing practices
+
+---
+
+# Environment Information
+
+| Item | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel9-network01.prod.lab |
+| Primary Interface | ens160 |
+| Network Utility | nmcli |
+| SELinux | Enforcing |
+
+---
+
+# Routing Overview
+
+Static routes provide:
+
+- custom network paths
+- traffic segmentation
+- alternate gateway control
+- enterprise network optimization
+- predictable routing behavior
+
+---
+
+# Initial Network Validation
+
+## Verify Interface Status
 
 ```bash
-ip addr show
-ip route show
 nmcli device status
-nmcli connection show
-ss -tulpen
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+ens160 connected
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+## Verify Current IP Address
 
-## Cleanup
+```bash
+ip addr show ens160
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+192.168.1.
+```
 
-Treat Static Routes as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+## Verify Existing Routes
+
+```bash
+ip route
+```
+
+Expected output:
+
+```text
+default via
+```
+
+---
+
+## Verify SELinux Status
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+# Temporary Static Route Configuration
+
+## Add Runtime Static Route
+
+```bash
+ip route add 10.10.20.0/24 via 192.168.1.1
+```
+
+---
+
+## Verify Added Route
+
+```bash
+ip route
+```
+
+Expected output:
+
+```text
+10.10.20.0/24 via 192.168.1.1
+```
+
+---
+
+## Verify Route Selection
+
+```bash
+ip route get 10.10.20.10
+```
+
+Expected output:
+
+```text
+via 192.168.1.1
+```
+
+---
+
+# Connectivity Validation
+
+## Verify Gateway Reachability
+
+```bash
+ping -c 4 192.168.1.1
+```
+
+Expected output:
+
+```text
+0% packet loss
+```
+
+---
+
+## Trace Route Path
+
+```bash
+traceroute 10.10.20.10
+```
+
+Expected output:
+
+```text
+1 192.168.1.1
+```
+
+---
+
+# Persistent Static Route Configuration
+
+## Configure Persistent Route
+
+```bash
+nmcli connection modify ens160 \
++ipv4.routes "10.20.30.0/24 192.168.1.1"
+```
+
+---
+
+## Apply Connection Changes
+
+```bash
+nmcli connection down ens160
+nmcli connection up ens160
+```
+
+Expected output:
+
+```text
+successfully activated
+```
+
+---
+
+## Verify Persistent Route
+
+```bash
+ip route
+```
+
+Expected output:
+
+```text
+10.20.30.0/24 via 192.168.1.1
+```
+
+---
+
+# Multiple Route Configuration
+
+## Add Additional Route
+
+```bash
+nmcli connection modify ens160 \
++ipv4.routes "172.16.50.0/24 192.168.1.254"
+```
+
+---
+
+## Restart Connection
+
+```bash
+nmcli connection up ens160
+```
+
+---
+
+## Verify Multiple Routes
+
+```bash
+ip route
+```
+
+Expected output:
+
+```text
+172.16.50.0/24
+```
+
+---
+
+# Route Monitoring
+
+## Verify Detailed Routing Table
+
+```bash
+ip route show table main
+```
+
+---
+
+## Verify Interface Routing
+
+```bash
+ip route get 8.8.8.8
+```
+
+Expected output:
+
+```text
+dev ens160
+```
+
+---
+
+## Verify Active Connections
+
+```bash
+nmcli connection show ens160
+```
+
+Expected output:
+
+```text
+ipv4.routes
+```
+
+---
+
+# Route Troubleshooting
+
+## Simulate Incorrect Route
+
+```bash
+ip route add 192.168.250.0/24 via 192.168.1.250
+```
+
+---
+
+## Verify Failed Route
+
+```bash
+ping -c 2 192.168.250.10
+```
+
+Expected output:
+
+```text
+Destination Host Unreachable
+```
+
+---
+
+## Remove Incorrect Route
+
+```bash
+ip route del 192.168.250.0/24
+```
+
+---
+
+## Verify Route Removal
+
+```bash
+ip route
+```
+
+Expected output:
+
+```text
+route removed
+```
+
+---
+
+# DNS and Connectivity Validation
+
+## Verify DNS Resolution
+
+```bash
+dig google.com
+```
+
+Expected output:
+
+```text
+ANSWER SECTION
+```
+
+---
+
+## Verify Internet Connectivity
+
+```bash
+ping -c 4 8.8.8.8
+```
+
+Expected output:
+
+```text
+0% packet loss
+```
+
+---
+
+# Interface Recovery Validation
+
+## Disconnect Interface
+
+```bash
+nmcli device disconnect ens160
+```
+
+---
+
+## Verify Route Removal
+
+```bash
+ip route
+```
+
+Expected output:
+
+```text
+routes unavailable
+```
+
+---
+
+## Restore Interface
+
+```bash
+nmcli device connect ens160
+```
+
+---
+
+## Verify Route Recovery
+
+```bash
+ip route
+```
+
+Expected output:
+
+```text
+10.20.30.0/24
+```
+
+---
+
+# Persistence Validation
+
+## Reboot Validation
+
+```bash
+reboot
+```
+
+After reboot:
+
+```bash
+ip route
+```
+
+Expected output:
+
+```text
+10.20.30.0/24
+172.16.50.0/24
+```
+
+Persistent routes remain active after reboot.
+
+---
+
+# Security Validation
+
+## Verify Listening Services
+
+```bash
+ss -tulnp
+```
+
+---
+
+## Verify Firewall Zones
+
+```bash
+firewall-cmd --get-active-zones
+```
+
+Expected output:
+
+```text
+public
+```
+
+---
+
+# Operational Recommendations
+
+## Use Static Routes for Predictable Traffic Flows
+
+Recommended environments:
+
+- enterprise WANs
+- segmented application networks
+- backup links
+- isolated infrastructure networks
+
+---
+
+## Avoid Excessive Manual Routes
+
+Too many static routes may increase:
+
+- troubleshooting complexity
+- operational overhead
+- routing inconsistencies
+
+Dynamic routing may be preferred for large environments.
+
+---
+
+## Monitor Routing Health Continuously
+
+Enterprise monitoring should validate:
+
+- route availability
+- gateway reachability
+- traffic latency
+- routing changes
+- interface failures
+
+---
+
+# Operational Notes
+
+- static routes provide controlled traffic paths
+- NetworkManager simplifies persistent routing
+- incorrect routes may disrupt connectivity
+- routing validation is critical after configuration changes
+- enterprise environments require continuous routing monitoring
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- static route configuration is operational
+- persistent routing is validated
+- route troubleshooting is understood
+- traffic path validation is verified
+- enterprise routing practices are applied
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/08-networking-static-routes.png)
