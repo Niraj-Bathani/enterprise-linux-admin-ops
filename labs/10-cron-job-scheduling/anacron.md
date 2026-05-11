@@ -1,46 +1,466 @@
-# Anacron
+# Anacron Job Scheduling
 
-## Objective
+## Overview
 
-In this lab you will practice anacron on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates enterprise Linux delayed job scheduling using Anacron on RHEL 9 systems.
 
-## Prerequisites
+The workflow simulates production maintenance scheduling scenarios involving periodic task execution, delayed cron processing, system uptime independence, and enterprise automation reliability.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `crontab -l` and record the output in your lab notes.
-2. Run `systemctl list-timers` and record the output in your lab notes.
-3. Run `grep CRON /var/log/cron` and record the output in your lab notes.
-4. Run `run-parts --test /etc/cron.daily` and record the output in your lab notes.
-5. Run `anacron -T` and record the output in your lab notes.
+This exercise covers:
 
-Example command sequence:
+- anacron configuration
+- delayed scheduled jobs
+- periodic maintenance execution
+- anacrontab management
+- log validation
+- automation monitoring
+- enterprise scheduling practices
+
+---
+
+# Environment Information
+
+| Item | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel9-scheduler01.prod.lab |
+| Scheduler Service | anacron |
+| Scheduling Utility | cronie |
+| SELinux | Enforcing |
+
+---
+
+# Anacron Overview
+
+Anacron provides:
+
+- delayed task execution
+- scheduling for non-continuous systems
+- periodic maintenance automation
+- uptime-independent scheduling
+- enterprise maintenance reliability
+
+Unlike cron, anacron ensures jobs execute even if the system was powered off during the scheduled interval.
+
+---
+
+# Initial Validation
+
+## Verify cronie Installation
 
 ```bash
-crontab -l
-systemctl list-timers
-grep CRON /var/log/cron
-run-parts --test /etc/cron.daily
-anacron -T
+rpm -q cronie
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+cronie
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+## Verify Anacron Service
 
-## Cleanup
+```bash
+systemctl status crond
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+active (running)
+```
 
-Treat Anacron as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+## Verify SELinux Status
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+# Anacron Configuration Validation
+
+## View anacrontab Configuration
+
+```bash
+cat /etc/anacrontab
+```
+
+Expected output:
+
+```text
+START_HOURS_RANGE
+```
+
+---
+
+## Review Existing Scheduled Jobs
+
+```bash
+grep -v '^#' /etc/anacrontab
+```
+
+Expected output:
+
+```text
+cron.daily
+cron.weekly
+cron.monthly
+```
+
+---
+
+# Create Maintenance Script
+
+## Create Log Cleanup Script
+
+```bash
+mkdir -p /opt/maintenance
+```
+
+---
+
+## Create Maintenance Job
+
+```bash
+vi /opt/maintenance/log-cleanup.sh
+```
+
+Add:
+
+```bash
+#!/bin/bash
+echo "Maintenance executed on $(date)" \
+>> /var/log/maintenance.log
+```
+
+---
+
+## Configure Script Permissions
+
+```bash
+chmod +x /opt/maintenance/log-cleanup.sh
+```
+
+---
+
+## Verify Script Permissions
+
+```bash
+ls -l /opt/maintenance/log-cleanup.sh
+```
+
+Expected output:
+
+```text
+-rwxr-xr-x
+```
+
+---
+
+# Configure Custom Anacron Job
+
+## Edit anacrontab
+
+```bash
+vi /etc/anacrontab
+```
+
+Add:
+
+```text
+1   5   maintenance-job   /opt/maintenance/log-cleanup.sh
+```
+
+---
+
+## Validate Configuration
+
+```bash
+grep maintenance-job /etc/anacrontab
+```
+
+Expected output:
+
+```text
+maintenance-job
+```
+
+---
+
+# Manual Job Execution
+
+## Run anacron Manually
+
+```bash
+anacron -fn
+```
+
+Expected output:
+
+```text
+Job `maintenance-job'
+```
+
+---
+
+## Verify Job Execution
+
+```bash
+cat /var/log/maintenance.log
+```
+
+Expected output:
+
+```text
+Maintenance executed
+```
+
+---
+
+# Anacron Timestamp Validation
+
+## Verify Anacron Spool Files
+
+```bash
+ls -lh /var/spool/anacron
+```
+
+Expected output:
+
+```text
+cron.daily
+maintenance-job
+```
+
+---
+
+## Inspect Timestamp File
+
+```bash
+cat /var/spool/anacron/maintenance-job
+```
+
+Expected output:
+
+```text
+date stamp
+```
+
+---
+
+# Delay and Frequency Validation
+
+## Simulate Delayed Execution
+
+```bash
+touch -d "2 days ago" \
+/var/spool/anacron/maintenance-job
+```
+
+---
+
+## Run anacron Again
+
+```bash
+anacron -fn
+```
+
+Expected output:
+
+```text
+maintenance-job
+```
+
+Job executes because scheduled interval was missed.
+
+---
+
+# Logging Validation
+
+## Verify System Logs
+
+```bash
+journalctl | grep anacron
+```
+
+Expected output:
+
+```text
+Job `maintenance-job'
+```
+
+---
+
+## Verify crond Logs
+
+```bash
+journalctl -u crond
+```
+
+Expected output:
+
+```text
+anacron
+```
+
+---
+
+# Monitoring Validation
+
+## Verify Running Scheduler Processes
+
+```bash
+ps -ef | grep anacron
+```
+
+Expected output:
+
+```text
+anacron
+```
+
+---
+
+## Verify Scheduled Maintenance Log
+
+```bash
+tail -5 /var/log/maintenance.log
+```
+
+Expected output:
+
+```text
+Maintenance executed
+```
+
+---
+
+# Persistence Validation
+
+## Reboot Validation
+
+```bash
+reboot
+```
+
+After reboot:
+
+```bash
+anacron -fn
+```
+
+Expected output:
+
+```text
+maintenance-job
+```
+
+Anacron scheduling remains persistent after reboot.
+
+---
+
+# Security Validation
+
+## Verify Script Ownership
+
+```bash
+ls -l /opt/maintenance
+```
+
+Expected output:
+
+```text
+root root
+```
+
+---
+
+## Verify Firewall Status
+
+```bash
+firewall-cmd --state
+```
+
+Expected output:
+
+```text
+running
+```
+
+---
+
+# Operational Recommendations
+
+## Use Anacron for Non-Continuous Systems
+
+Recommended systems:
+
+- workstations
+- laptops
+- intermittently powered servers
+- maintenance hosts
+
+---
+
+## Separate Maintenance Scripts Clearly
+
+Enterprise environments should:
+
+- centralize automation scripts
+- maintain audit visibility
+- use secure permissions
+- validate scheduled execution
+
+---
+
+## Monitor Scheduled Job Failures
+
+Enterprise monitoring should validate:
+
+- missed maintenance tasks
+- failed automation scripts
+- delayed job execution
+- scheduler service failures
+
+---
+
+# Operational Notes
+
+- anacron executes missed scheduled jobs
+- timestamp files track execution history
+- delayed execution improves scheduling reliability
+- automation scripts require secure permissions
+- enterprise environments require continuous scheduler monitoring
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- anacron scheduling is operational
+- delayed job execution is validated
+- maintenance automation is configured
+- scheduler logging is verified
+- enterprise maintenance scheduling practices are applied
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/10-cron-job-scheduling-anacron.png)
