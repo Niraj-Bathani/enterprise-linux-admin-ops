@@ -1,46 +1,461 @@
-# LVM Recovery
+# LVM Recovery Procedures
 
-## Objective
+## Overview
 
-In this lab you will practice lvm recovery on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates enterprise Linux Logical Volume Manager (LVM) recovery procedures on RHEL 9 systems.
 
-## Prerequisites
+The workflow simulates production storage incident response operations involving damaged physical volumes, inactive volume groups, missing logical volumes, and metadata recovery scenarios.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `pvcreate /dev/sdb1` and record the output in your lab notes.
-2. Run `vgcreate vg_data /dev/sdb1` and record the output in your lab notes.
-3. Run `lvcreate -n lv_apps -L 2G vg_data` and record the output in your lab notes.
-4. Run `mkfs.xfs /dev/vg_data/lv_apps` and record the output in your lab notes.
-5. Run `lvextend -r -L +1G /dev/vg_data/lv_apps` and record the output in your lab notes.
+This exercise covers:
 
-Example command sequence:
+- LVM metadata validation
+- inactive volume recovery
+- missing physical volume handling
+- volume group restoration
+- logical volume activation
+- filesystem validation
+- enterprise recovery best practices
+
+---
+
+# Environment Information
+
+| Item | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel9-recovery01.prod.lab |
+| Volume Group | vg_data |
+| Logical Volume | lv_appdata |
+| Filesystem | XFS |
+| SELinux | Enforcing |
+
+---
+
+# Recovery Scenario
+
+The environment simulates:
+
+- inaccessible logical volumes
+- inactive volume groups
+- damaged metadata conditions
+- missing physical volume events
+- filesystem recovery validation
+
+---
+
+# Initial Validation
+
+## Verify Block Devices
 
 ```bash
-pvcreate /dev/sdb1
-vgcreate vg_data /dev/sdb1
-lvcreate -n lv_apps -L 2G vg_data
-mkfs.xfs /dev/vg_data/lv_apps
-lvextend -r -L +1G /dev/vg_data/lv_apps
+lsblk
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+sdb1
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+## Verify Physical Volumes
 
-## Cleanup
+```bash
+pvs
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+PV         VG       Fmt  Attr PSize
+/dev/sdb1  vg_data  lvm2 a--
+```
 
-Treat LVM Recovery as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+## Verify Volume Groups
+
+```bash
+vgs
+```
+
+Expected output:
+
+```text
+VG       #PV #LV #SN Attr
+vg_data    1   1   0 wz--n-
+```
+
+---
+
+## Verify Logical Volumes
+
+```bash
+lvs
+```
+
+Expected output:
+
+```text
+lv_appdata
+```
+
+---
+
+# Simulate Volume Group Failure
+
+## Deactivate Volume Group
+
+```bash
+vgchange -an vg_data
+```
+
+Expected output:
+
+```text
+0 logical volume(s) in volume group "vg_data" now active
+```
+
+---
+
+## Verify Inactive Logical Volumes
+
+```bash
+lvs
+```
+
+Expected output:
+
+```text
+inactive
+```
+
+---
+
+# Recovery Workflow
+
+## Scan for LVM Metadata
+
+```bash
+pvscan
+vgscan
+lvscan
+```
+
+Expected output:
+
+```text
+ACTIVE
+```
+
+---
+
+## Reactivate Volume Group
+
+```bash
+vgchange -ay vg_data
+```
+
+Expected output:
+
+```text
+1 logical volume(s) in volume group "vg_data" now active
+```
+
+---
+
+## Verify Logical Volume Activation
+
+```bash
+lvs
+```
+
+Expected output:
+
+```text
+lv_appdata
+```
+
+---
+
+# Filesystem Recovery Validation
+
+## Verify Mounted Filesystems
+
+```bash
+mount | grep vg_data
+```
+
+---
+
+## Mount Logical Volume
+
+```bash
+mount /dev/vg_data/lv_appdata /app-data
+```
+
+---
+
+## Verify Mounted Filesystem
+
+```bash
+df -hT | grep app-data
+```
+
+Expected output:
+
+```text
+/dev/mapper/vg_data-lv_appdata xfs
+```
+
+---
+
+# Read/Write Validation
+
+## Create Validation File
+
+```bash
+touch /app-data/recovery-test.txt
+```
+
+---
+
+## Verify File Creation
+
+```bash
+ls -l /app-data
+```
+
+Expected output:
+
+```text
+recovery-test.txt
+```
+
+---
+
+# Metadata Backup Validation
+
+## Verify LVM Backup Files
+
+```bash
+ls -l /etc/lvm/backup
+```
+
+Expected output:
+
+```text
+vg_data
+```
+
+---
+
+## Backup Current Metadata
+
+```bash
+vgcfgbackup vg_data
+```
+
+Expected output:
+
+```text
+Volume group "vg_data" successfully backed up
+```
+
+---
+
+# Metadata Restore Procedure
+
+## Restore LVM Metadata
+
+Example recovery command:
+
+```bash
+vgcfgrestore vg_data
+```
+
+---
+
+## Verify Restored Configuration
+
+```bash
+vgscan
+```
+
+Expected output:
+
+```text
+Found volume group "vg_data"
+```
+
+---
+
+# Missing Physical Volume Simulation
+
+## Simulate Missing Device
+
+```bash
+pvchange -x n /dev/sdb1
+```
+
+---
+
+## Verify Degraded Volume Group
+
+```bash
+vgs
+```
+
+Expected output:
+
+```text
+partial
+```
+
+---
+
+# Recovery from Missing Physical Volume
+
+## Re-enable Physical Volume
+
+```bash
+pvchange -x y /dev/sdb1
+```
+
+---
+
+## Rescan LVM Devices
+
+```bash
+pvscan
+vgscan
+lvscan
+```
+
+---
+
+## Verify Recovery Status
+
+```bash
+lvs
+```
+
+Expected output:
+
+```text
+available
+```
+
+---
+
+# Filesystem Integrity Validation
+
+## Verify XFS Filesystem
+
+```bash
+xfs_repair -n /dev/vg_data/lv_appdata
+```
+
+Expected output:
+
+```text
+No modify flag set
+```
+
+---
+
+# Performance Validation
+
+## Verify Disk Statistics
+
+```bash
+iostat -xz 1 1
+```
+
+---
+
+# SELinux Validation
+
+## Verify SELinux Status
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+SELinux remains enabled throughout all recovery procedures.
+
+---
+
+# Operational Recommendations
+
+## Maintain LVM Metadata Backups
+
+Critical LVM metadata backups should be validated regularly:
+
+```bash
+vgcfgbackup
+```
+
+This improves recovery speed during storage incidents.
+
+---
+
+## Validate Storage Health Regularly
+
+Enterprise monitoring should validate:
+
+- physical volume status
+- logical volume availability
+- volume group integrity
+- disk I/O health
+- filesystem accessibility
+
+---
+
+## Test Recovery Procedures
+
+Routine recovery testing improves:
+
+- operational readiness
+- incident response reliability
+- storage recovery confidence
+- infrastructure resilience
+
+---
+
+# Operational Notes
+
+- LVM metadata recovery is critical for enterprise storage
+- volume groups can be reactivated without reboot
+- filesystem validation is required after recovery
+- metadata backups reduce operational recovery time
+- enterprise monitoring should track LVM health continuously
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- LVM recovery procedures are validated
+- inactive volume groups are restored
+- logical volume activation is operational
+- metadata recovery workflows are understood
+- enterprise storage recovery practices are applied
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/03-lvm-recovery.png)
