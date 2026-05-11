@@ -1,46 +1,575 @@
-# iptables Legacy
+# iptables Legacy Firewall Administration
 
-## Objective
+## Overview
 
-In this lab you will practice iptables legacy on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates legacy `iptables` firewall administration on RHEL 9 systems.
 
-## Prerequisites
+The workflow simulates enterprise firewall troubleshooting and compatibility scenarios involving manual packet filtering, chain management, NAT validation, and legacy firewall auditing.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `firewall-cmd --get-active-zones` and record the output in your lab notes.
-2. Run `firewall-cmd --list-all` and record the output in your lab notes.
-3. Run `firewall-cmd --add-service=http --permanent` and record the output in your lab notes.
-4. Run `firewall-cmd --reload` and record the output in your lab notes.
-5. Run `nft list ruleset` and record the output in your lab notes.
+This exercise covers:
 
-Example command sequence:
+- iptables rule management
+- INPUT/OUTPUT/FORWARD chains
+- port filtering
+- packet inspection
+- NAT validation
+- rule persistence
+- enterprise firewall troubleshooting practices
+
+---
+
+# Environment Information
+
+| Item | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel9-secure01.prod.lab |
+| Firewall Utility | iptables |
+| Firewall Backend | nftables compatibility |
+| SELinux | Enforcing |
+
+---
+
+# iptables Overview
+
+iptables provides:
+
+- packet filtering
+- stateful firewall inspection
+- custom rule chains
+- NAT handling
+- low-level network filtering
+
+Although `firewalld` is preferred on modern RHEL systems, iptables knowledge remains important for:
+
+- legacy systems
+- troubleshooting
+- migration scenarios
+- enterprise compatibility operations
+
+---
+
+# Initial Firewall Validation
+
+## Verify SELinux Status
 
 ```bash
-firewall-cmd --get-active-zones
-firewall-cmd --list-all
-firewall-cmd --add-service=http --permanent
-firewall-cmd --reload
-nft list ruleset
+getenforce
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+Enforcing
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+## Verify Active Network Interfaces
 
-## Cleanup
+```bash
+ip addr
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+ens160
+```
 
-Treat iptables Legacy as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+## Verify Listening Services
+
+```bash
+ss -tulnp
+```
+
+Expected output:
+
+```text
+LISTEN
+```
+
+---
+
+# View Existing iptables Rules
+
+## List Active Rules
+
+```bash
+iptables -L -n -v
+```
+
+Expected output:
+
+```text
+Chain INPUT
+Chain FORWARD
+Chain OUTPUT
+```
+
+---
+
+## View NAT Table
+
+```bash
+iptables -t nat -L -n -v
+```
+
+Expected output:
+
+```text
+Chain PREROUTING
+```
+
+---
+
+# Flush Existing Rules
+
+## Remove Existing Rules
+
+```bash
+iptables -F
+```
+
+---
+
+## Flush NAT Rules
+
+```bash
+iptables -t nat -F
+```
+
+---
+
+## Verify Empty Ruleset
+
+```bash
+iptables -L -n -v
+```
+
+Expected output:
+
+```text
+0 references
+```
+
+---
+
+# Default Policy Configuration
+
+## Configure INPUT Policy
+
+```bash
+iptables -P INPUT DROP
+```
+
+---
+
+## Configure FORWARD Policy
+
+```bash
+iptables -P FORWARD DROP
+```
+
+---
+
+## Configure OUTPUT Policy
+
+```bash
+iptables -P OUTPUT ACCEPT
+```
+
+---
+
+## Verify Policies
+
+```bash
+iptables -L
+```
+
+Expected output:
+
+```text
+policy DROP
+```
+
+---
+
+# Allow Loopback Traffic
+
+## Permit Localhost Communication
+
+```bash
+iptables -A INPUT -i lo -j ACCEPT
+```
+
+---
+
+## Verify Loopback Rule
+
+```bash
+iptables -L INPUT -n -v
+```
+
+Expected output:
+
+```text
+ACCEPT all -- lo
+```
+
+---
+
+# Allow Established Connections
+
+## Permit Stateful Traffic
+
+```bash
+iptables -A INPUT \
+-m conntrack --ctstate ESTABLISHED,RELATED \
+-j ACCEPT
+```
+
+---
+
+## Verify Stateful Rule
+
+```bash
+iptables -L INPUT -n -v
+```
+
+Expected output:
+
+```text
+ESTABLISHED,RELATED
+```
+
+---
+
+# SSH Access Configuration
+
+## Allow SSH Access
+
+```bash
+iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+```
+
+---
+
+## Verify SSH Rule
+
+```bash
+iptables -L INPUT -n -v
+```
+
+Expected output:
+
+```text
+tcp dpt:22
+```
+
+---
+
+# HTTP and HTTPS Configuration
+
+## Allow HTTP Access
+
+```bash
+iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+```
+
+---
+
+## Allow HTTPS Access
+
+```bash
+iptables -A INPUT -p tcp --dport 443 -j ACCEPT
+```
+
+---
+
+## Verify Web Rules
+
+```bash
+iptables -L INPUT -n -v
+```
+
+Expected output:
+
+```text
+tcp dpt:80
+tcp dpt:443
+```
+
+---
+
+# ICMP Validation
+
+## Allow Ping Requests
+
+```bash
+iptables -A INPUT -p icmp -j ACCEPT
+```
+
+---
+
+## Verify ICMP Rule
+
+```bash
+iptables -L INPUT -n -v
+```
+
+Expected output:
+
+```text
+icmp
+```
+
+---
+
+# Logging Configuration
+
+## Add Firewall Logging Rule
+
+```bash
+iptables -A INPUT -j LOG --log-prefix "iptables-denied: "
+```
+
+---
+
+## Verify Logging Rule
+
+```bash
+iptables -L INPUT -n -v
+```
+
+Expected output:
+
+```text
+LOG
+```
+
+---
+
+# NAT Validation
+
+## Configure Source NAT
+
+```bash
+iptables -t nat -A POSTROUTING \
+-o ens160 -j MASQUERADE
+```
+
+---
+
+## Verify NAT Rule
+
+```bash
+iptables -t nat -L -n -v
+```
+
+Expected output:
+
+```text
+MASQUERADE
+```
+
+---
+
+# Connectivity Validation
+
+## Verify SSH Connectivity
+
+```bash
+ssh localhost
+```
+
+---
+
+## Verify HTTP Connectivity
+
+```bash
+curl http://localhost
+```
+
+---
+
+## Verify ICMP Connectivity
+
+```bash
+ping -c 2 localhost
+```
+
+Expected output:
+
+```text
+2 packets transmitted
+```
+
+---
+
+# Logging Validation
+
+## View Firewall Logs
+
+```bash
+journalctl | grep iptables-denied
+```
+
+Expected output:
+
+```text
+iptables-denied
+```
+
+---
+
+# Rule Persistence
+
+## Save iptables Rules
+
+```bash
+iptables-save > /etc/sysconfig/iptables
+```
+
+---
+
+## Verify Saved Rules
+
+```bash
+cat /etc/sysconfig/iptables
+```
+
+Expected output:
+
+```text
+-A INPUT
+```
+
+---
+
+# Rule Restoration
+
+## Restore Saved Rules
+
+```bash
+iptables-restore < /etc/sysconfig/iptables
+```
+
+---
+
+## Verify Restored Rules
+
+```bash
+iptables -L -n -v
+```
+
+Expected output:
+
+```text
+Chain INPUT
+```
+
+---
+
+# Security Validation
+
+## Verify Open Ports
+
+```bash
+ss -tulnp
+```
+
+---
+
+## Verify Packet Counters
+
+```bash
+iptables -L -v
+```
+
+Expected output:
+
+```text
+pkts bytes
+```
+
+---
+
+# Operational Recommendations
+
+## Prefer firewalld for Modern Systems
+
+Use iptables primarily for:
+
+- legacy compatibility
+- troubleshooting
+- low-level firewall debugging
+- migration support
+
+---
+
+## Use Default DROP Policies
+
+Enterprise firewalls should default to:
+
+```text
+deny all unless explicitly allowed
+```
+
+This reduces attack surface exposure.
+
+---
+
+## Enable Firewall Logging
+
+Logging improves:
+
+- intrusion visibility
+- security auditing
+- incident investigation
+- firewall troubleshooting
+
+---
+
+## Audit Firewall Rules Regularly
+
+Enterprise monitoring should validate:
+
+- unauthorized firewall changes
+- unexpected open ports
+- inactive firewall policies
+- excessive ACCEPT rules
+
+---
+
+# Operational Notes
+
+- iptables provides low-level packet filtering
+- stateful inspection improves connection tracking
+- NAT rules require careful validation
+- logging improves security visibility
+- enterprise environments require continuous firewall auditing
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- iptables administration is operational
+- chain-based filtering is validated
+- NAT configuration is verified
+- firewall logging is operational
+- enterprise packet filtering practices are applied
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/07-firewall-iptables-legacy.png)
