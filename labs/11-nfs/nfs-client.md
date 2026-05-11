@@ -1,46 +1,571 @@
-# NFS Client
+# NFS Client Configuration
 
-## Objective
+## Overview
 
-In this lab you will practice nfs client on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates enterprise Linux NFS client configuration on RHEL 9 systems.
 
-## Prerequisites
+The workflow simulates production shared storage access involving NFS mount configuration, persistent client mounting, connectivity validation, and enterprise distributed storage practices.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `exportfs -v` and record the output in your lab notes.
-2. Run `showmount -e localhost` and record the output in your lab notes.
-3. Run `mount -t nfs server:/exports/tools /mnt/tools` and record the output in your lab notes.
-4. Run `nfsstat -s` and record the output in your lab notes.
-5. Run `journalctl -u nfs-server` and record the output in your lab notes.
+This exercise covers:
 
-Example command sequence:
+- NFS client installation
+- remote NFS mounting
+- persistent mount configuration
+- mount troubleshooting
+- connectivity validation
+- NFS monitoring
+- enterprise shared storage practices
+
+---
+
+# Environment Information
+
+| Item | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel9-client01.prod.lab |
+| NFS Server | 192.168.1.10 |
+| Shared Export | /data/apps |
+| SELinux | Enforcing |
+
+---
+
+# NFS Client Overview
+
+NFS clients provide:
+
+- remote filesystem access
+- centralized shared storage
+- distributed application data
+- enterprise collaboration
+- network-based storage integration
+
+---
+
+# Initial Validation
+
+## Verify Network Connectivity
 
 ```bash
-exportfs -v
-showmount -e localhost
-mount -t nfs server:/exports/tools /mnt/tools
-nfsstat -s
-journalctl -u nfs-server
+ping -c 4 192.168.1.10
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+0% packet loss
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+## Verify SELinux Status
 
-## Cleanup
+```bash
+getenforce
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+Enforcing
+```
 
-Treat NFS Client as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+## Verify Existing Mounts
+
+```bash
+mount | grep nfs
+```
+
+Expected output:
+
+```text
+(no output)
+```
+
+---
+
+# Install NFS Client Utilities
+
+## Install nfs-utils Package
+
+```bash
+dnf install -y nfs-utils
+```
+
+Expected output:
+
+```text
+Complete!
+```
+
+---
+
+## Verify Installed Package
+
+```bash
+rpm -q nfs-utils
+```
+
+Expected output:
+
+```text
+nfs-utils
+```
+
+---
+
+# Discover NFS Exports
+
+## Query Remote NFS Shares
+
+```bash
+showmount -e 192.168.1.10
+```
+
+Expected output:
+
+```text
+/data/apps
+```
+
+---
+
+## Verify RPC Connectivity
+
+```bash
+rpcinfo -p 192.168.1.10
+```
+
+Expected output:
+
+```text
+nfs
+mountd
+```
+
+---
+
+# Create Mount Directory
+
+## Create Local Mount Point
+
+```bash
+mkdir -p /mnt/apps
+```
+
+---
+
+## Verify Mount Directory
+
+```bash
+ls -ld /mnt/apps
+```
+
+Expected output:
+
+```text
+drwxr-xr-x
+```
+
+---
+
+# Mount NFS Share
+
+## Mount Remote Export
+
+```bash
+mount -t nfs \
+192.168.1.10:/data/apps \
+/mnt/apps
+```
+
+---
+
+## Verify Mounted Filesystem
+
+```bash
+mount | grep /mnt/apps
+```
+
+Expected output:
+
+```text
+192.168.1.10:/data/apps
+```
+
+---
+
+## Verify Disk Usage
+
+```bash
+df -h /mnt/apps
+```
+
+Expected output:
+
+```text
+Filesystem
+```
+
+---
+
+# File Access Validation
+
+## Create Test File
+
+```bash
+touch /mnt/apps/client-test.txt
+```
+
+---
+
+## Verify File Creation
+
+```bash
+ls -lh /mnt/apps
+```
+
+Expected output:
+
+```text
+client-test.txt
+```
+
+---
+
+## Verify File Ownership
+
+```bash
+ls -l /mnt/apps/client-test.txt
+```
+
+Expected output:
+
+```text
+root root
+```
+
+---
+
+# Persistent Mount Configuration
+
+## Backup fstab
+
+```bash
+cp /etc/fstab /etc/fstab.bak
+```
+
+---
+
+## Configure Persistent Mount
+
+```bash
+vi /etc/fstab
+```
+
+Add:
+
+```text
+192.168.1.10:/data/apps  /mnt/apps  nfs  defaults,_netdev  0 0
+```
+
+---
+
+## Validate fstab Syntax
+
+```bash
+mount -a
+```
+
+Expected output:
+
+```text
+(no errors)
+```
+
+---
+
+## Verify Persistent Mount
+
+```bash
+mount | grep /mnt/apps
+```
+
+Expected output:
+
+```text
+/data/apps
+```
+
+---
+
+# Mount Troubleshooting
+
+## Verify Active Mounts
+
+```bash
+findmnt | grep nfs
+```
+
+Expected output:
+
+```text
+nfs
+```
+
+---
+
+## Verify NFS Statistics
+
+```bash
+nfsstat -m
+```
+
+Expected output:
+
+```text
+/mnt/apps
+```
+
+---
+
+## Verify RPC Services
+
+```bash
+rpcinfo -p localhost
+```
+
+Expected output:
+
+```text
+nfs
+```
+
+---
+
+# Connectivity Monitoring
+
+## Verify Open NFS Connections
+
+```bash
+ss -tulpn | grep 2049
+```
+
+Expected output:
+
+```text
+2049
+```
+
+---
+
+## Verify Mounted Shares
+
+```bash
+cat /proc/mounts | grep nfs
+```
+
+Expected output:
+
+```text
+nfs
+```
+
+---
+
+# Logging Validation
+
+## Verify NFS Logs
+
+```bash
+journalctl | grep nfs
+```
+
+Expected output:
+
+```text
+NFS
+```
+
+---
+
+## Verify Mount Activity
+
+```bash
+journalctl | grep mount
+```
+
+Expected output:
+
+```text
+mounted
+```
+
+---
+
+# Recovery Validation
+
+## Unmount NFS Share
+
+```bash
+umount /mnt/apps
+```
+
+---
+
+## Verify Unmount
+
+```bash
+mount | grep /mnt/apps
+```
+
+Expected output:
+
+```text
+(no output)
+```
+
+---
+
+## Remount Using fstab
+
+```bash
+mount -a
+```
+
+---
+
+## Verify Recovery Mount
+
+```bash
+df -h /mnt/apps
+```
+
+Expected output:
+
+```text
+Filesystem
+```
+
+---
+
+# Persistence Validation
+
+## Reboot Validation
+
+```bash
+reboot
+```
+
+After reboot:
+
+```bash
+mount | grep /mnt/apps
+```
+
+Expected output:
+
+```text
+192.168.1.10:/data/apps
+```
+
+Persistent NFS mounts remain active after reboot.
+
+---
+
+# Security Validation
+
+## Verify Firewall Status
+
+```bash
+firewall-cmd --state
+```
+
+Expected output:
+
+```text
+running
+```
+
+---
+
+## Verify SELinux Enforcement
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+# Operational Recommendations
+
+## Use Persistent Mounts Carefully
+
+Enterprise systems should:
+
+- validate server availability
+- use `_netdev` for network mounts
+- monitor mount failures
+- document shared storage dependencies
+
+---
+
+## Monitor Shared Storage Availability
+
+Enterprise monitoring should validate:
+
+- NFS server reachability
+- mount latency
+- stale file handles
+- storage capacity
+
+---
+
+## Protect Shared Storage Access
+
+Recommended practices:
+
+- restrict export access
+- monitor client activity
+- enforce least privilege
+- audit shared filesystem usage
+
+---
+
+# Operational Notes
+
+- NFS provides centralized shared storage
+- persistent mounts simplify enterprise workflows
+- mount failures may impact application availability
+- RPC services are critical for NFS communication
+- enterprise environments require continuous storage monitoring
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- NFS client configuration is operational
+- remote mounts are validated
+- persistent NFS storage is configured
+- mount troubleshooting is verified
+- enterprise shared storage practices are applied
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/11-nfs-client.png)
