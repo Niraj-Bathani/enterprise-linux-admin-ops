@@ -1,46 +1,415 @@
-# Quota Reporting
+# Quota Reporting and Monitoring
 
-## Objective
+## Overview
 
-In this lab you will practice quota reporting on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates enterprise Linux quota reporting and monitoring procedures on RHEL 9 systems.
 
-## Prerequisites
+The workflow simulates production storage governance operations used for enterprise monitoring, quota auditing, capacity management, and filesystem utilization analysis.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `id alice` and record the output in your lab notes.
-2. Run `getent passwd alice` and record the output in your lab notes.
-3. Run `useradd -m alice` and record the output in your lab notes.
-4. Run `passwd -S alice` and record the output in your lab notes.
-5. Run `usermod -aG wheel alice` and record the output in your lab notes.
+This exercise covers:
 
-Example command sequence:
+- quota reporting
+- quota usage monitoring
+- user quota analysis
+- group quota analysis
+- quota auditing
+- filesystem usage validation
+- enterprise storage governance practices
+
+---
+
+# Environment Information
+
+| Item | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel9-storage01.prod.lab |
+| Filesystem | XFS |
+| Mount Point | /shared-data |
+| Quota Utilities | quota, repquota |
+| SELinux | Enforcing |
+
+---
+
+# Quota Reporting Overview
+
+Quota reporting provides:
+
+- storage usage visibility
+- quota enforcement auditing
+- filesystem growth monitoring
+- enterprise capacity planning
+- user and group accountability
+
+---
+
+# Initial Filesystem Validation
+
+## Verify Mounted Filesystem
 
 ```bash
-id alice
-getent passwd alice
-useradd -m alice
-passwd -S alice
-usermod -aG wheel alice
+mount | grep shared-data
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+uquota,gquota
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+## Verify Filesystem Usage
 
-## Cleanup
+```bash
+df -hT | grep shared-data
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+xfs
+```
 
-Treat Quota Reporting as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+# Verify Active Quotas
+
+## Validate Quota Status
+
+```bash
+quotaon -p /shared-data
+```
+
+Expected output:
+
+```text
+user quotas turned on
+group quotas turned on
+```
+
+---
+
+# User Quota Reporting
+
+## Display User Quotas
+
+```bash
+quota -u quotauser01
+```
+
+Expected output:
+
+```text
+Disk quotas for user quotauser01
+```
+
+---
+
+## Display Detailed User Quotas
+
+```bash
+quota -vs quotauser01
+```
+
+Expected output:
+
+```text
+Block grace time
+```
+
+---
+
+## Verify Multiple User Quotas
+
+```bash
+quota -u quotauser01
+quota -u quotauser02
+```
+
+---
+
+# Group Quota Reporting
+
+## Display Group Quotas
+
+```bash
+quota -g developers
+```
+
+Expected output:
+
+```text
+Disk quotas for group developers
+```
+
+---
+
+## Verify Group Quota Usage
+
+```bash
+repquota /shared-data
+```
+
+Expected output:
+
+```text
+developers
+```
+
+---
+
+# Full Quota Report Generation
+
+## Generate Complete Quota Report
+
+```bash
+repquota -a
+```
+
+Expected output:
+
+```text
+Report for user quotas
+```
+
+---
+
+## Example Quota Report
+
+```text
+User       used   soft   hard
+quotauser01 500M  600M   700M
+```
+
+---
+
+# Grace Period Monitoring
+
+## Verify Grace Periods
+
+```bash
+repquota /shared-data
+```
+
+Expected output:
+
+```text
+7days
+```
+
+---
+
+## Validate Soft Limit Warnings
+
+Create additional files until soft quota limits are exceeded.
+
+Expected output:
+
+```text
+warning: user quota exceeded
+```
+
+---
+
+# Hard Limit Validation
+
+## Trigger Hard Limit Enforcement
+
+Attempt additional writes after hard quota limits.
+
+Expected output:
+
+```text
+Disk quota exceeded
+```
+
+---
+
+# Filesystem Usage Monitoring
+
+## Verify Disk Utilization
+
+```bash
+df -hT
+```
+
+---
+
+## Verify Inode Utilization
+
+```bash
+df -ih
+```
+
+Expected output:
+
+```text
+IUse%
+```
+
+---
+
+# User Activity Validation
+
+## Generate Test Data
+
+```bash
+dd if=/dev/zero of=/shared-data/report-test.img bs=1M count=200
+```
+
+---
+
+## Verify File Ownership
+
+```bash
+ls -lh /shared-data
+```
+
+Expected output:
+
+```text
+report-test.img
+```
+
+---
+
+# Quota Audit Validation
+
+## Verify Quota Database Files
+
+```bash
+ls -l /shared-data
+```
+
+Expected output:
+
+```text
+aquota.user
+aquota.group
+```
+
+---
+
+## Validate Quota Database Consistency
+
+```bash
+quotacheck -avug
+```
+
+Expected output:
+
+```text
+Scanning filesystem
+```
+
+---
+
+# Enterprise Monitoring Validation
+
+## Monitor Quota Utilization Trends
+
+Example monitoring workflow:
+
+```bash
+repquota -a > /var/log/quota-report.log
+```
+
+---
+
+## Verify Report Generation
+
+```bash
+cat /var/log/quota-report.log
+```
+
+Expected output:
+
+```text
+quota report
+```
+
+---
+
+# SELinux Validation
+
+## Verify SELinux Status
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+SELinux remains enabled throughout all quota reporting operations.
+
+---
+
+# Operational Recommendations
+
+## Monitor Quota Growth Regularly
+
+Enterprise monitoring should validate:
+
+- users nearing limits
+- filesystem growth trends
+- quota enforcement events
+- inode exhaustion risks
+
+---
+
+## Automate Quota Reporting
+
+Recommended automation:
+
+- scheduled quota audits
+- email notifications
+- centralized reporting
+- filesystem growth alerts
+
+---
+
+## Monitor Both Blocks and Inodes
+
+Quota governance should validate:
+
+- storage block consumption
+- inode consumption
+- abnormal user activity
+- storage abuse conditions
+
+---
+
+# Operational Notes
+
+- `repquota` provides enterprise quota visibility
+- quota monitoring improves storage governance
+- quota audits help prevent filesystem exhaustion
+- grace periods provide operational flexibility
+- enterprise environments require continuous quota analysis
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- quota reporting is operational
+- quota monitoring workflows are validated
+- filesystem utilization auditing is understood
+- quota enforcement visibility is verified
+- enterprise storage governance practices are applied
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/05-quotas-quota-reporting.png)
