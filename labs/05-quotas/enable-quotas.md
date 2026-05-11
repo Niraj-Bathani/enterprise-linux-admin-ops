@@ -1,46 +1,447 @@
-# Enable Quotas
+# Enable Filesystem Quotas
 
-## Objective
+## Overview
 
-In this lab you will practice enable quotas on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates enterprise Linux filesystem quota enablement on RHEL 9 systems.
 
-## Prerequisites
+The workflow simulates production storage governance procedures used for shared environments, multi-user systems, enterprise application platforms, and storage resource control.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `id alice` and record the output in your lab notes.
-2. Run `getent passwd alice` and record the output in your lab notes.
-3. Run `useradd -m alice` and record the output in your lab notes.
-4. Run `passwd -S alice` and record the output in your lab notes.
-5. Run `usermod -aG wheel alice` and record the output in your lab notes.
+This exercise covers:
 
-Example command sequence:
+- enabling filesystem quotas
+- configuring user quotas
+- configuring group quotas
+- quota database creation
+- quota activation
+- filesystem validation
+- enterprise quota operational practices
+
+---
+
+# Environment Information
+
+| Item | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel9-storage01.prod.lab |
+| Filesystem | XFS |
+| Mount Point | /shared-data |
+| Quota Utilities | quota, quotaon, quotacheck |
+| SELinux | Enforcing |
+
+---
+
+# Quota Overview
+
+Filesystem quotas provide:
+
+- storage usage control
+- user storage governance
+- group storage allocation
+- filesystem protection against exhaustion
+- enterprise capacity management
+
+---
+
+# Planned Configuration
+
+| Item | Value |
+|---|---|
+| Mount Point | /shared-data |
+| User Quotas | Enabled |
+| Group Quotas | Enabled |
+| Filesystem | XFS |
+
+---
+
+# Initial Filesystem Validation
+
+## Verify Mounted Filesystem
 
 ```bash
-id alice
-getent passwd alice
-useradd -m alice
-passwd -S alice
-usermod -aG wheel alice
+df -hT
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+/dev/mapper/rhel-root xfs
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+## Verify Current Mount Options
 
-## Cleanup
+```bash
+mount | grep shared-data
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+rw,relatime
+```
 
-Treat Enable Quotas as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+# Create Shared Filesystem Directory
+
+## Create Mount Point
+
+```bash
+mkdir -p /shared-data
+```
+
+---
+
+## Verify Directory Creation
+
+```bash
+ls -ld /shared-data
+```
+
+Expected output:
+
+```text
+drwxr-xr-x
+```
+
+---
+
+# Enable Quota Mount Options
+
+## Edit /etc/fstab
+
+```bash
+vi /etc/fstab
+```
+
+Modify the filesystem entry:
+
+```text
+UUID=<uuid> /shared-data xfs defaults,uquota,gquota 0 0
+```
+
+Explanation:
+
+| Option | Purpose |
+|---|---|
+| `uquota` | Enable user quotas |
+| `gquota` | Enable group quotas |
+
+---
+
+# Remount Filesystem
+
+## Apply New Mount Options
+
+```bash
+mount -o remount /shared-data
+```
+
+---
+
+## Verify Active Quota Options
+
+```bash
+mount | grep shared-data
+```
+
+Expected output:
+
+```text
+uquota,gquota
+```
+
+---
+
+# Create Quota Database
+
+## Run Quota Check
+
+```bash
+quotacheck -cug /shared-data
+```
+
+Explanation:
+
+| Option | Purpose |
+|---|---|
+| `-c` | Create quota files |
+| `-u` | User quotas |
+| `-g` | Group quotas |
+
+---
+
+## Verify Quota Files
+
+```bash
+ls -l /shared-data
+```
+
+Expected output:
+
+```text
+aquota.user
+aquota.group
+```
+
+---
+
+# Enable Quotas
+
+## Activate User and Group Quotas
+
+```bash
+quotaon /shared-data
+```
+
+---
+
+## Verify Quota Status
+
+```bash
+quotaon -p /shared-data
+```
+
+Expected output:
+
+```text
+user quotas turned on
+group quotas turned on
+```
+
+---
+
+# User Quota Validation
+
+## Create Test User
+
+```bash
+useradd quotauser01
+```
+
+---
+
+## Verify User Information
+
+```bash
+id quotauser01
+```
+
+Expected output:
+
+```text
+uid=1001
+```
+
+---
+
+## Configure User Quota
+
+```bash
+edquota -u quotauser01
+```
+
+Example configuration:
+
+```text
+blocks soft=500000 hard=600000
+```
+
+---
+
+# Group Quota Validation
+
+## Create Test Group
+
+```bash
+groupadd developers
+```
+
+---
+
+## Configure Group Quota
+
+```bash
+edquota -g developers
+```
+
+Example configuration:
+
+```text
+blocks soft=2G hard=3G
+```
+
+---
+
+# Quota Usage Validation
+
+## Verify User Quotas
+
+```bash
+quota -u quotauser01
+```
+
+Expected output:
+
+```text
+Disk quotas for user quotauser01
+```
+
+---
+
+## Generate Quota Report
+
+```bash
+repquota /shared-data
+```
+
+Expected output:
+
+```text
+user quota report
+```
+
+---
+
+# Quota Enforcement Validation
+
+## Generate Test File
+
+```bash
+dd if=/dev/zero of=/shared-data/testfile.img bs=1M count=100
+```
+
+---
+
+## Verify Filesystem Usage
+
+```bash
+df -hT | grep shared-data
+```
+
+---
+
+# Persistent Quota Validation
+
+## Reboot Validation
+
+```bash
+reboot
+```
+
+After reboot:
+
+```bash
+quotaon -p /shared-data
+```
+
+Expected output:
+
+```text
+user quotas turned on
+```
+
+Persistent quota configuration validated successfully.
+
+---
+
+# Filesystem Validation
+
+## Verify Mounted Filesystem
+
+```bash
+mount | grep shared-data
+```
+
+Expected output:
+
+```text
+uquota,gquota
+```
+
+---
+
+# SELinux Validation
+
+## Verify SELinux Status
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+SELinux remains enabled throughout all quota operations.
+
+---
+
+# Operational Recommendations
+
+## Enable Quotas on Shared Filesystems
+
+Recommended environments:
+
+- shared application servers
+- multi-user systems
+- research environments
+- enterprise file servers
+
+---
+
+## Monitor Quota Utilization Regularly
+
+Enterprise monitoring should validate:
+
+- filesystem growth
+- quota threshold violations
+- storage consumption trends
+- quota enforcement events
+
+---
+
+## Apply Both User and Group Quotas
+
+Combined quota enforcement improves:
+
+- storage governance
+- departmental accountability
+- resource allocation fairness
+- operational stability
+
+---
+
+# Operational Notes
+
+- XFS supports enterprise quota management
+- quotas help prevent filesystem exhaustion
+- quota databases must be initialized correctly
+- persistent mount options are required
+- enterprise environments require continuous quota monitoring
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- filesystem quotas are enabled
+- user and group quotas are operational
+- quota databases are validated
+- persistent quota configuration is verified
+- enterprise storage governance practices are applied
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/05-quotas-enable-quotas.png)
