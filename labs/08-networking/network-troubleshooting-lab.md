@@ -1,46 +1,637 @@
-# Network Troubleshooting Lab
+# Enterprise Network Troubleshooting Lab
 
-## Objective
+## Overview
 
-In this lab you will practice network troubleshooting lab on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates enterprise Linux network troubleshooting procedures on RHEL 9 systems.
 
-## Prerequisites
+The workflow simulates production incident response scenarios involving connectivity failures, DNS issues, routing validation, packet analysis, firewall diagnostics, and service troubleshooting.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `ip addr show` and record the output in your lab notes.
-2. Run `ip route show` and record the output in your lab notes.
-3. Run `nmcli device status` and record the output in your lab notes.
-4. Run `nmcli connection show` and record the output in your lab notes.
-5. Run `ss -tulpen` and record the output in your lab notes.
+This exercise covers:
 
-Example command sequence:
+- interface troubleshooting
+- connectivity diagnostics
+- DNS troubleshooting
+- routing analysis
+- firewall validation
+- packet inspection
+- enterprise network incident response practices
+
+---
+
+# Environment Information
+
+| Item | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel9-network01.prod.lab |
+| Primary Interface | ens160 |
+| Firewall Service | firewalld |
+| SELinux | Enforcing |
+
+---
+
+# Troubleshooting Overview
+
+Enterprise network troubleshooting requires:
+
+- layered diagnostics
+- connectivity validation
+- service verification
+- packet analysis
+- firewall inspection
+- routing analysis
+
+---
+
+# Initial System Validation
+
+## Verify Hostname
 
 ```bash
-ip addr show
-ip route show
-nmcli device status
-nmcli connection show
-ss -tulpen
+hostnamectl
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+rhel9-network01.prod.lab
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+## Verify SELinux Status
 
-## Cleanup
+```bash
+getenforce
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+Enforcing
+```
 
-Treat Network Troubleshooting Lab as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+## Verify NetworkManager Status
+
+```bash
+systemctl status NetworkManager
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+---
+
+# Interface Troubleshooting
+
+## Verify Interface Status
+
+```bash
+nmcli device status
+```
+
+Expected output:
+
+```text
+ens160 connected
+```
+
+---
+
+## Verify Interface Details
+
+```bash
+ip addr show ens160
+```
+
+Expected output:
+
+```text
+inet 192.168.1.
+```
+
+---
+
+## Verify Link State
+
+```bash
+ethtool ens160
+```
+
+Expected output:
+
+```text
+Link detected: yes
+```
+
+---
+
+# Connectivity Diagnostics
+
+## Verify Loopback Connectivity
+
+```bash
+ping -c 4 127.0.0.1
+```
+
+Expected output:
+
+```text
+0% packet loss
+```
+
+---
+
+## Verify Gateway Reachability
+
+```bash
+ping -c 4 192.168.1.1
+```
+
+Expected output:
+
+```text
+bytes from
+```
+
+---
+
+## Verify External Connectivity
+
+```bash
+ping -c 4 8.8.8.8
+```
+
+Expected output:
+
+```text
+0% packet loss
+```
+
+---
+
+## Verify DNS Resolution
+
+```bash
+ping -c 4 google.com
+```
+
+Expected output:
+
+```text
+bytes from
+```
+
+---
+
+# Routing Troubleshooting
+
+## View Routing Table
+
+```bash
+ip route
+```
+
+Expected output:
+
+```text
+default via 192.168.1.1
+```
+
+---
+
+## Verify Route Selection
+
+```bash
+ip route get 8.8.8.8
+```
+
+Expected output:
+
+```text
+via 192.168.1.1
+```
+
+---
+
+## Trace Network Path
+
+```bash
+traceroute 8.8.8.8
+```
+
+Expected output:
+
+```text
+1 192.168.1.1
+```
+
+---
+
+# DNS Troubleshooting
+
+## Verify Resolver Configuration
+
+```bash
+cat /etc/resolv.conf
+```
+
+Expected output:
+
+```text
+nameserver
+```
+
+---
+
+## Verify DNS Query
+
+```bash
+dig google.com
+```
+
+Expected output:
+
+```text
+ANSWER SECTION
+```
+
+---
+
+## Test Alternate Resolver
+
+```bash
+dig @8.8.8.8 google.com
+```
+
+Expected output:
+
+```text
+status: NOERROR
+```
+
+---
+
+## Test Failed Resolver Scenario
+
+```bash
+dig @192.168.1.250 google.com
+```
+
+Expected output:
+
+```text
+connection timed out
+```
+
+---
+
+# Firewall Troubleshooting
+
+## Verify firewalld Status
+
+```bash
+systemctl status firewalld
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+---
+
+## Verify Open Services
+
+```bash
+firewall-cmd --list-services
+```
+
+Expected output:
+
+```text
+ssh
+```
+
+---
+
+## Verify Listening Ports
+
+```bash
+ss -tulnp
+```
+
+Expected output:
+
+```text
+LISTEN
+```
+
+---
+
+# Service Troubleshooting
+
+## Verify SSH Service
+
+```bash
+systemctl status sshd
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+---
+
+## Verify HTTP Service
+
+```bash
+systemctl status httpd
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+---
+
+## Verify HTTP Connectivity
+
+```bash
+curl http://localhost
+```
+
+Expected output:
+
+```text
+Test Page
+```
+
+---
+
+# Packet Capture Validation
+
+## Capture ICMP Traffic
+
+```bash
+tcpdump -i ens160 icmp
+```
+
+Expected output:
+
+```text
+ICMP echo request
+```
+
+---
+
+## Capture DNS Queries
+
+```bash
+tcpdump -i ens160 port 53
+```
+
+Expected output:
+
+```text
+DNS query
+```
+
+---
+
+# Socket Troubleshooting
+
+## Verify Open TCP Ports
+
+```bash
+ss -tulpn
+```
+
+---
+
+## Verify Established Connections
+
+```bash
+ss -ant
+```
+
+Expected output:
+
+```text
+ESTAB
+```
+
+---
+
+# Log Analysis
+
+## Verify System Logs
+
+```bash
+journalctl -xe
+```
+
+---
+
+## Verify NetworkManager Logs
+
+```bash
+journalctl -u NetworkManager
+```
+
+Expected output:
+
+```text
+connection activated
+```
+
+---
+
+## Verify Firewall Logs
+
+```bash
+journalctl | grep firewalld
+```
+
+Expected output:
+
+```text
+firewalld
+```
+
+---
+
+# Interface Recovery Simulation
+
+## Disable Interface
+
+```bash
+nmcli device disconnect ens160
+```
+
+---
+
+## Verify Connectivity Failure
+
+```bash
+ping -c 2 8.8.8.8
+```
+
+Expected output:
+
+```text
+Network is unreachable
+```
+
+---
+
+## Restore Interface
+
+```bash
+nmcli device connect ens160
+```
+
+---
+
+## Verify Recovery
+
+```bash
+ping -c 4 8.8.8.8
+```
+
+Expected output:
+
+```text
+0% packet loss
+```
+
+---
+
+# Monitoring Validation
+
+## Verify Interface Statistics
+
+```bash
+ip -s link show ens160
+```
+
+---
+
+## Verify Routing Statistics
+
+```bash
+netstat -rn
+```
+
+Expected output:
+
+```text
+Kernel IP routing table
+```
+
+---
+
+# Security Validation
+
+## Verify SELinux Enforcement
+
+```bash
+getenforce
+```
+
+---
+
+## Verify Active Firewall Zones
+
+```bash
+firewall-cmd --get-active-zones
+```
+
+Expected output:
+
+```text
+public
+```
+
+---
+
+# Operational Recommendations
+
+## Follow Layered Troubleshooting
+
+Enterprise diagnostics should validate:
+
+1. interface status
+2. IP configuration
+3. gateway connectivity
+4. DNS resolution
+5. firewall rules
+6. application services
+
+---
+
+## Use Multiple Diagnostic Utilities
+
+Recommended tools:
+
+- ping
+- traceroute
+- dig
+- ss
+- tcpdump
+- journalctl
+
+---
+
+## Monitor Network Health Continuously
+
+Enterprise monitoring should validate:
+
+- packet loss
+- interface failures
+- DNS latency
+- routing instability
+- firewall changes
+- service outages
+
+---
+
+# Operational Notes
+
+- network troubleshooting requires layered validation
+- DNS failures commonly appear as connectivity issues
+- firewall policies may block application traffic
+- packet captures improve incident visibility
+- enterprise environments require continuous network monitoring
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- enterprise network troubleshooting workflows are operational
+- connectivity diagnostics are validated
+- DNS and routing troubleshooting is understood
+- packet analysis is verified
+- enterprise incident response practices are applied
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/08-networking-network-troubleshooting-lab.png)
