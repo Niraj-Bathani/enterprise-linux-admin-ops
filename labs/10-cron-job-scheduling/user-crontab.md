@@ -1,46 +1,541 @@
-# User Crontab
+# User Crontab Administration
 
-## Objective
+## Overview
 
-In this lab you will practice user crontab on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates enterprise Linux user-level cron scheduling on RHEL 9 systems.
 
-## Prerequisites
+The workflow simulates production automation scenarios involving per-user scheduled tasks, crontab management, execution monitoring, logging validation, and enterprise task scheduling practices.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `id alice` and record the output in your lab notes.
-2. Run `getent passwd alice` and record the output in your lab notes.
-3. Run `useradd -m alice` and record the output in your lab notes.
-4. Run `passwd -S alice` and record the output in your lab notes.
-5. Run `usermod -aG wheel alice` and record the output in your lab notes.
+This exercise covers:
 
-Example command sequence:
+- user crontab configuration
+- scheduled user jobs
+- cron expression management
+- job logging and validation
+- scheduler monitoring
+- cron security controls
+- enterprise automation practices
+
+---
+
+# Environment Information
+
+| Item | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel9-scheduler01.prod.lab |
+| Scheduler Service | crond |
+| Scheduling Method | user crontab |
+| SELinux | Enforcing |
+
+---
+
+# User Crontab Overview
+
+User crontabs provide:
+
+- user-specific automation
+- recurring maintenance tasks
+- isolated scheduled execution
+- decentralized task management
+- enterprise workflow automation
+
+---
+
+# Initial Validation
+
+## Verify crond Service
 
 ```bash
-id alice
-getent passwd alice
-useradd -m alice
-passwd -S alice
-usermod -aG wheel alice
+systemctl status crond
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+active (running)
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+## Verify SELinux Status
 
-## Cleanup
+```bash
+getenforce
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+Enforcing
+```
 
-Treat User Crontab as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+## Verify Current User Crontab
+
+```bash
+crontab -l
+```
+
+Expected output:
+
+```text
+no crontab for
+```
+
+---
+
+# Create Scheduled User
+
+## Create Automation User
+
+```bash
+useradd automation01
+```
+
+---
+
+## Configure Password
+
+```bash
+passwd automation01
+```
+
+Expected output:
+
+```text
+password updated successfully
+```
+
+---
+
+## Verify User Account
+
+```bash
+id automation01
+```
+
+Expected output:
+
+```text
+uid=
+```
+
+---
+
+# Create Scheduled Task Script
+
+## Create User Script Directory
+
+```bash
+mkdir -p /home/automation01/scripts
+```
+
+---
+
+## Create Scheduled Script
+
+```bash
+vi /home/automation01/scripts/user-health-check.sh
+```
+
+Add:
+
+```bash
+#!/bin/bash
+
+echo "User health check executed on $(date)" \
+>> /home/automation01/health-check.log
+```
+
+---
+
+## Configure Script Permissions
+
+```bash
+chmod +x \
+/home/automation01/scripts/user-health-check.sh
+```
+
+---
+
+## Configure Ownership
+
+```bash
+chown -R automation01:automation01 \
+/home/automation01/scripts
+```
+
+---
+
+## Verify Script Permissions
+
+```bash
+ls -l /home/automation01/scripts
+```
+
+Expected output:
+
+```text
+-rwxr-xr-x
+```
+
+---
+
+# Configure User Crontab
+
+## Switch to Automation User
+
+```bash
+su - automation01
+```
+
+---
+
+## Edit User Crontab
+
+```bash
+crontab -e
+```
+
+Add:
+
+```text
+*/5 * * * * /home/automation01/scripts/user-health-check.sh
+```
+
+---
+
+## Verify User Crontab
+
+```bash
+crontab -l
+```
+
+Expected output:
+
+```text
+user-health-check.sh
+```
+
+---
+
+# Cron Execution Validation
+
+## Wait for Scheduled Execution
+
+```bash
+sleep 300
+```
+
+---
+
+## Verify User Log File
+
+```bash
+cat /home/automation01/health-check.log
+```
+
+Expected output:
+
+```text
+User health check executed
+```
+
+---
+
+## Verify Multiple Executions
+
+```bash
+tail -5 /home/automation01/health-check.log
+```
+
+Expected output:
+
+```text
+multiple timestamps
+```
+
+---
+
+# Logging Validation
+
+## Verify Cron Activity
+
+```bash
+grep CRON /var/log/cron
+```
+
+Expected output:
+
+```text
+automation01
+```
+
+---
+
+## Verify Scheduler Journal Logs
+
+```bash
+journalctl -u crond
+```
+
+Expected output:
+
+```text
+user-health-check.sh
+```
+
+---
+
+# Monitoring Validation
+
+## Verify Running Scheduler Processes
+
+```bash
+ps -ef | grep cron
+```
+
+Expected output:
+
+```text
+crond
+```
+
+---
+
+## Verify User Processes
+
+```bash
+ps -u automation01
+```
+
+Expected output:
+
+```text
+user-health-check.sh
+```
+
+---
+
+# Cron Output Validation
+
+## Redirect Script Output
+
+Edit user crontab:
+
+```text
+*/5 * * * * /home/automation01/scripts/user-health-check.sh >> /home/automation01/cron-output.log 2>&1
+```
+
+---
+
+## Verify Output Logging
+
+```bash
+cat /home/automation01/cron-output.log
+```
+
+Expected output:
+
+```text
+health check executed
+```
+
+---
+
+# Cron Security Validation
+
+## Verify Allowed Cron Users
+
+```bash
+cat /etc/cron.allow
+```
+
+Expected output:
+
+```text
+authorized users
+```
+
+---
+
+## Restrict Unauthorized Cron Access
+
+```bash
+echo "automation01" >> /etc/cron.allow
+```
+
+---
+
+## Verify Allowed Users
+
+```bash
+cat /etc/cron.allow
+```
+
+Expected output:
+
+```text
+automation01
+```
+
+---
+
+# User Cron Removal Validation
+
+## Remove User Crontab
+
+```bash
+crontab -r
+```
+
+---
+
+## Verify Crontab Removal
+
+```bash
+crontab -l
+```
+
+Expected output:
+
+```text
+no crontab for
+```
+
+---
+
+# Persistence Validation
+
+## Reconfigure Crontab
+
+```bash
+crontab -e
+```
+
+Add:
+
+```text
+*/10 * * * * /home/automation01/scripts/user-health-check.sh
+```
+
+---
+
+## Reboot Validation
+
+```bash
+reboot
+```
+
+After reboot:
+
+```bash
+crontab -l
+```
+
+Expected output:
+
+```text
+user-health-check.sh
+```
+
+User crontab scheduling remains persistent after reboot.
+
+---
+
+# Security Validation
+
+## Verify Home Directory Permissions
+
+```bash
+ls -ld /home/automation01
+```
+
+Expected output:
+
+```text
+automation01 automation01
+```
+
+---
+
+## Verify Firewall Status
+
+```bash
+firewall-cmd --state
+```
+
+Expected output:
+
+```text
+running
+```
+
+---
+
+# Operational Recommendations
+
+## Use User Crontabs for Application Automation
+
+Recommended tasks:
+
+- report generation
+- log collection
+- application maintenance
+- user-specific automation
+
+---
+
+## Use Dedicated Automation Accounts
+
+Enterprise systems should:
+
+- isolate scheduled tasks
+- avoid shared administrative users
+- use restricted permissions
+- audit scheduled automation
+
+---
+
+## Monitor Scheduled Job Failures
+
+Enterprise monitoring should validate:
+
+- failed scheduled scripts
+- missing cron executions
+- permission failures
+- excessive cron activity
+
+---
+
+# Operational Notes
+
+- user crontabs isolate scheduled automation
+- cron logs improve operational visibility
+- dedicated automation users improve security
+- redirected output simplifies troubleshooting
+- enterprise environments require scheduler auditing
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- user crontab scheduling is operational
+- scheduled user automation is validated
+- cron monitoring is configured
+- scheduler security controls are verified
+- enterprise automation practices are applied
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/10-cron-job-scheduling-user-crontab.png)
