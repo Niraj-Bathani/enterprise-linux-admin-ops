@@ -1,46 +1,655 @@
-# Local User Chroot
+# Local User Chroot Configuration in vsftpd
 
-## Objective
+## Overview
 
-In this lab you will practice local user chroot on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates enterprise Linux local user isolation using chroot environments in vsftpd on RHEL 9 systems.
 
-## Prerequisites
+The workflow simulates production secure FTP deployments involving local user restrictions, directory isolation, SELinux integration, firewall configuration, and enterprise file transfer security practices.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `id alice` and record the output in your lab notes.
-2. Run `getent passwd alice` and record the output in your lab notes.
-3. Run `useradd -m alice` and record the output in your lab notes.
-4. Run `passwd -S alice` and record the output in your lab notes.
-5. Run `usermod -aG wheel alice` and record the output in your lab notes.
+This exercise covers:
 
-Example command sequence:
+- local FTP user configuration
+- chroot jail implementation
+- secure user isolation
+- SELinux FTP integration
+- FTP access validation
+- logging and monitoring
+- enterprise secure FTP practices
+
+---
+
+# Environment Information
+
+| Item | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel9-ftp01.prod.lab |
+| FTP Service | vsftpd |
+| FTP User | ftpuser01 |
+| SELinux | Enforcing |
+
+---
+
+# Chroot FTP Overview
+
+Chroot isolation provides:
+
+- restricted filesystem access
+- user directory containment
+- secure file transfer environments
+- reduced lateral movement risk
+- enterprise FTP security controls
+
+---
+
+# Initial Validation
+
+## Verify SELinux Status
 
 ```bash
-id alice
-getent passwd alice
-useradd -m alice
-passwd -S alice
-usermod -aG wheel alice
+getenforce
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+Enforcing
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+## Verify vsftpd Service
 
-## Cleanup
+```bash
+systemctl status vsftpd
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+active (running)
+```
 
-Treat Local User Chroot as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+## Verify FTP Listening Port
+
+```bash
+ss -tulpn | grep :21
+```
+
+Expected output:
+
+```text
+:21
+```
+
+---
+
+# Create Local FTP User
+
+## Create FTP User Account
+
+```bash
+useradd -m ftpuser01
+```
+
+---
+
+## Configure User Password
+
+```bash
+passwd ftpuser01
+```
+
+Expected output:
+
+```text
+password updated successfully
+```
+
+---
+
+## Verify User Account
+
+```bash
+id ftpuser01
+```
+
+Expected output:
+
+```text
+uid=
+```
+
+---
+
+# Configure FTP Directories
+
+## Create FTP Upload Directory
+
+```bash
+mkdir -p /home/ftpuser01/upload
+```
+
+---
+
+## Configure Ownership
+
+```bash
+chown ftpuser01:ftpuser01 \
+/home/ftpuser01/upload
+```
+
+---
+
+## Configure Home Directory Permissions
+
+```bash
+chmod 755 /home/ftpuser01
+chmod 755 /home/ftpuser01/upload
+```
+
+---
+
+## Verify Directory Permissions
+
+```bash
+ls -ld /home/ftpuser01
+ls -ld /home/ftpuser01/upload
+```
+
+Expected output:
+
+```text
+drwxr-xr-x
+```
+
+---
+
+# Configure vsftpd
+
+## Backup FTP Configuration
+
+```bash
+cp /etc/vsftpd/vsftpd.conf \
+/etc/vsftpd/vsftpd.conf.bak
+```
+
+---
+
+## Edit vsftpd Configuration
+
+```bash
+vi /etc/vsftpd/vsftpd.conf
+```
+
+Configure:
+
+```ini
+local_enable=YES
+write_enable=YES
+chroot_local_user=YES
+allow_writeable_chroot=YES
+local_umask=022
+```
+
+---
+
+## Verify Chroot Configuration
+
+```bash
+grep chroot_local_user \
+/etc/vsftpd/vsftpd.conf
+```
+
+Expected output:
+
+```text
+chroot_local_user=YES
+```
+
+---
+
+# Configure SELinux for FTP Home Access
+
+## Verify FTP SELinux Booleans
+
+```bash
+getsebool -a | grep ftp_home_dir
+```
+
+Expected output:
+
+```text
+ftp_home_dir
+```
+
+---
+
+## Enable FTP Home Directory Access
+
+```bash
+setsebool -P ftp_home_dir on
+```
+
+---
+
+## Verify Updated Boolean
+
+```bash
+getsebool ftp_home_dir
+```
+
+Expected output:
+
+```text
+on
+```
+
+---
+
+## Verify SELinux Contexts
+
+```bash
+ls -Zd /home/ftpuser01
+```
+
+Expected output:
+
+```text
+user_home_dir_t
+```
+
+---
+
+# Configure Firewall Access
+
+## Allow FTP Service
+
+```bash
+firewall-cmd --permanent --add-service=ftp
+```
+
+---
+
+## Reload Firewall Rules
+
+```bash
+firewall-cmd --reload
+```
+
+Expected output:
+
+```text
+success
+```
+
+---
+
+## Verify Firewall Services
+
+```bash
+firewall-cmd --list-services
+```
+
+Expected output:
+
+```text
+ftp
+```
+
+---
+
+# Restart FTP Service
+
+## Restart vsftpd
+
+```bash
+systemctl restart vsftpd
+```
+
+---
+
+## Verify Service Status
+
+```bash
+systemctl status vsftpd
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+---
+
+# FTP Login Validation
+
+## Connect Using FTP Client
+
+```bash
+ftp localhost
+```
+
+Login:
+
+```text
+Name: ftpuser01
+Password:
+```
+
+---
+
+## Verify Restricted Directory
+
+```bash
+pwd
+```
+
+Expected output:
+
+```text
+/
+```
+
+User is restricted to the chroot environment.
+
+---
+
+## Upload Test File
+
+```bash
+put upload-test.txt
+```
+
+Expected output:
+
+```text
+Transfer complete
+```
+
+---
+
+## Verify Uploaded File
+
+```bash
+ls -lh /home/ftpuser01
+```
+
+Expected output:
+
+```text
+upload-test.txt
+```
+
+---
+
+# Chroot Isolation Validation
+
+## Attempt Directory Traversal
+
+```bash
+cd ..
+```
+
+Expected output:
+
+```text
+/
+```
+
+User cannot escape the chroot jail.
+
+---
+
+## Verify Restricted Access
+
+```bash
+ls /
+```
+
+Expected output:
+
+```text
+local chroot contents only
+```
+
+---
+
+# Monitoring Validation
+
+## Verify Open FTP Sessions
+
+```bash
+ss -ant | grep :21
+```
+
+Expected output:
+
+```text
+ESTAB
+```
+
+---
+
+## Verify vsftpd Processes
+
+```bash
+ps -ef | grep vsftpd
+```
+
+Expected output:
+
+```text
+vsftpd
+```
+
+---
+
+# Logging Validation
+
+## Verify FTP Login Logs
+
+```bash
+journalctl -u vsftpd
+```
+
+Expected output:
+
+```text
+OK LOGIN
+```
+
+---
+
+## Verify Transfer Logs
+
+```bash
+cat /var/log/xferlog
+```
+
+Expected output:
+
+```text
+upload-test.txt
+```
+
+---
+
+## Verify SELinux Audit Logs
+
+```bash
+ausearch -m AVC
+```
+
+Expected output:
+
+```text
+(no denials)
+```
+
+---
+
+# Recovery Validation
+
+## Simulate Incorrect Permissions
+
+```bash
+chmod 777 /home/ftpuser01
+```
+
+---
+
+## Verify FTP Login Failure
+
+Attempt FTP login again.
+
+Expected output:
+
+```text
+500 OOPS
+```
+
+---
+
+## Restore Secure Permissions
+
+```bash
+chmod 755 /home/ftpuser01
+```
+
+---
+
+## Verify Login Recovery
+
+Retry FTP login.
+
+Expected output:
+
+```text
+Login successful
+```
+
+---
+
+# Persistence Validation
+
+## Reboot Validation
+
+```bash
+reboot
+```
+
+After reboot:
+
+```bash
+systemctl status vsftpd
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+FTP chroot configuration remains persistent after reboot.
+
+---
+
+# Security Validation
+
+## Verify SELinux Enforcement
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+## Verify Active Firewall Zones
+
+```bash
+firewall-cmd --get-active-zones
+```
+
+Expected output:
+
+```text
+public
+```
+
+---
+
+# Operational Recommendations
+
+## Use Chroot Isolation for Local FTP Users
+
+Enterprise systems should:
+
+- isolate user environments
+- restrict unnecessary filesystem access
+- audit FTP activity
+- use dedicated upload directories
+
+---
+
+## Prefer Secure Alternatives Where Possible
+
+Recommended alternatives:
+
+- SFTP
+- SCP
+- HTTPS-based uploads
+
+Traditional FTP should only be used where necessary.
+
+---
+
+## Monitor FTP User Activity
+
+Enterprise monitoring should validate:
+
+- unusual login attempts
+- unauthorized uploads
+- failed authentication events
+- storage consumption trends
+
+---
+
+# Operational Notes
+
+- chroot jails improve FTP user isolation
+- SELinux policies affect FTP home access
+- directory permissions directly impact login success
+- firewall configuration controls external connectivity
+- enterprise environments require continuous FTP auditing
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- FTP chroot isolation is operational
+- local user restrictions are validated
+- SELinux integration is configured
+- FTP monitoring is verified
+- enterprise secure FTP practices are applied
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/12-ftp-vsftpd-local-user-chroot.png)
