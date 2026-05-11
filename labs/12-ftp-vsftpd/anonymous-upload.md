@@ -1,46 +1,620 @@
-# Anonymous Upload
+# Anonymous FTP Upload Configuration
 
-## Objective
+## Overview
 
-In this lab you will practice anonymous upload on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates enterprise Linux anonymous FTP upload configuration using vsftpd on RHEL 9 systems.
 
-## Prerequisites
+The workflow simulates production public upload scenarios involving anonymous access control, upload permissions, SELinux integration, firewall configuration, and enterprise file transfer security practices.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `sshd -t` and record the output in your lab notes.
-2. Run `systemctl reload sshd` and record the output in your lab notes.
-3. Run `ssh -i ~/.ssh/id_ed25519 user@server` and record the output in your lab notes.
-4. Run `scp file user@server:/tmp/` and record the output in your lab notes.
-5. Run `sftp user@server` and record the output in your lab notes.
+This exercise covers:
 
-Example command sequence:
+- anonymous FTP configuration
+- upload directory permissions
+- SELinux FTP integration
+- firewall configuration
+- upload validation
+- FTP monitoring
+- enterprise public file transfer practices
+
+---
+
+# Environment Information
+
+| Item | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel9-ftp01.prod.lab |
+| FTP Service | vsftpd |
+| Upload Directory | /var/ftp/pub/uploads |
+| SELinux | Enforcing |
+
+---
+
+# FTP Anonymous Upload Overview
+
+Anonymous FTP uploads provide:
+
+- public file submission
+- shared upload workflows
+- external partner uploads
+- centralized transfer management
+- enterprise inbound file handling
+
+---
+
+# Initial Validation
+
+## Verify SELinux Status
 
 ```bash
-sshd -t
-systemctl reload sshd
-ssh -i ~/.ssh/id_ed25519 user@server
-scp file user@server:/tmp/
-sftp user@server
+getenforce
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+Enforcing
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+## Verify vsftpd Service
 
-## Cleanup
+```bash
+systemctl status vsftpd
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+active (running)
+```
 
-Treat Anonymous Upload as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+## Verify FTP Listening Port
+
+```bash
+ss -tulpn | grep :21
+```
+
+Expected output:
+
+```text
+:21
+```
+
+---
+
+# Install FTP Service
+
+## Install vsftpd Package
+
+```bash
+dnf install -y vsftpd
+```
+
+Expected output:
+
+```text
+Complete!
+```
+
+---
+
+## Enable FTP Service
+
+```bash
+systemctl enable --now vsftpd
+```
+
+---
+
+## Verify FTP Service Status
+
+```bash
+systemctl status vsftpd
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+---
+
+# Configure Upload Directory
+
+## Create Upload Path
+
+```bash
+mkdir -p /var/ftp/pub/uploads
+```
+
+---
+
+## Configure Directory Ownership
+
+```bash
+chown ftp:ftp /var/ftp/pub/uploads
+```
+
+---
+
+## Configure Upload Permissions
+
+```bash
+chmod 733 /var/ftp/pub/uploads
+```
+
+---
+
+## Verify Upload Directory
+
+```bash
+ls -ld /var/ftp/pub/uploads
+```
+
+Expected output:
+
+```text
+drwx-wx-wx
+```
+
+---
+
+# Configure vsftpd
+
+## Backup FTP Configuration
+
+```bash
+cp /etc/vsftpd/vsftpd.conf \
+/etc/vsftpd/vsftpd.conf.bak
+```
+
+---
+
+## Edit vsftpd Configuration
+
+```bash
+vi /etc/vsftpd/vsftpd.conf
+```
+
+Configure:
+
+```ini
+anonymous_enable=YES
+anon_upload_enable=YES
+anon_mkdir_write_enable=YES
+write_enable=YES
+anon_root=/var/ftp
+```
+
+---
+
+## Verify FTP Configuration
+
+```bash
+grep anonymous_enable /etc/vsftpd/vsftpd.conf
+```
+
+Expected output:
+
+```text
+anonymous_enable=YES
+```
+
+---
+
+# Configure SELinux for FTP Uploads
+
+## Verify FTP SELinux Booleans
+
+```bash
+getsebool -a | grep ftp
+```
+
+Expected output:
+
+```text
+allow_ftpd_anon_write
+```
+
+---
+
+## Enable Anonymous FTP Uploads
+
+```bash
+setsebool -P allow_ftpd_anon_write on
+```
+
+---
+
+## Configure SELinux Context
+
+```bash
+semanage fcontext -a -t public_content_rw_t \
+"/var/ftp/pub/uploads(/.*)?"
+```
+
+---
+
+## Apply SELinux Labels
+
+```bash
+restorecon -Rv /var/ftp/pub/uploads
+```
+
+Expected output:
+
+```text
+Relabeled
+```
+
+---
+
+## Verify SELinux Context
+
+```bash
+ls -Zd /var/ftp/pub/uploads
+```
+
+Expected output:
+
+```text
+public_content_rw_t
+```
+
+---
+
+# Configure Firewall Access
+
+## Allow FTP Service
+
+```bash
+firewall-cmd --permanent --add-service=ftp
+```
+
+---
+
+## Reload Firewall Rules
+
+```bash
+firewall-cmd --reload
+```
+
+Expected output:
+
+```text
+success
+```
+
+---
+
+## Verify Firewall Services
+
+```bash
+firewall-cmd --list-services
+```
+
+Expected output:
+
+```text
+ftp
+```
+
+---
+
+# Restart FTP Service
+
+## Restart vsftpd
+
+```bash
+systemctl restart vsftpd
+```
+
+---
+
+## Verify Service Status
+
+```bash
+systemctl status vsftpd
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+---
+
+# Anonymous Upload Validation
+
+## Connect Using FTP Client
+
+```bash
+ftp localhost
+```
+
+Login:
+
+```text
+Name: anonymous
+Password: anonymous@
+```
+
+---
+
+## Navigate to Upload Directory
+
+```bash
+cd pub/uploads
+```
+
+---
+
+## Upload Test File
+
+```bash
+put test-upload.txt
+```
+
+Expected output:
+
+```text
+Transfer complete
+```
+
+---
+
+## Verify Uploaded File
+
+```bash
+ls -lh /var/ftp/pub/uploads
+```
+
+Expected output:
+
+```text
+test-upload.txt
+```
+
+---
+
+# Monitoring Validation
+
+## Verify Open FTP Connections
+
+```bash
+ss -ant | grep :21
+```
+
+Expected output:
+
+```text
+ESTAB
+```
+
+---
+
+## Verify vsftpd Processes
+
+```bash
+ps -ef | grep vsftpd
+```
+
+Expected output:
+
+```text
+vsftpd
+```
+
+---
+
+# Logging Validation
+
+## Verify FTP Logs
+
+```bash
+journalctl -u vsftpd
+```
+
+Expected output:
+
+```text
+OK LOGIN
+```
+
+---
+
+## Verify Transfer Logs
+
+```bash
+cat /var/log/xferlog
+```
+
+Expected output:
+
+```text
+test-upload.txt
+```
+
+---
+
+## Verify SELinux Audit Logs
+
+```bash
+ausearch -m AVC
+```
+
+Expected output:
+
+```text
+(no denials)
+```
+
+---
+
+# Recovery Validation
+
+## Simulate Incorrect Permissions
+
+```bash
+chmod 755 /var/ftp/pub/uploads
+```
+
+---
+
+## Verify Upload Failure
+
+Attempt upload again.
+
+Expected output:
+
+```text
+Permission denied
+```
+
+---
+
+## Restore Upload Permissions
+
+```bash
+chmod 733 /var/ftp/pub/uploads
+```
+
+---
+
+## Verify Upload Recovery
+
+Retry upload.
+
+Expected output:
+
+```text
+Transfer complete
+```
+
+---
+
+# Persistence Validation
+
+## Reboot Validation
+
+```bash
+reboot
+```
+
+After reboot:
+
+```bash
+systemctl status vsftpd
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+FTP upload configuration remains persistent after reboot.
+
+---
+
+# Security Validation
+
+## Verify SELinux Enforcement
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+## Verify Active Firewall Zones
+
+```bash
+firewall-cmd --get-active-zones
+```
+
+Expected output:
+
+```text
+public
+```
+
+---
+
+# Operational Recommendations
+
+## Restrict Anonymous Upload Areas
+
+Enterprise systems should:
+
+- isolate upload directories
+- prevent unrestricted browsing
+- monitor uploaded content
+- enforce storage quotas
+
+---
+
+## Monitor Public Upload Activity
+
+Enterprise monitoring should validate:
+
+- unusual upload patterns
+- excessive storage consumption
+- unauthorized content
+- FTP service interruptions
+
+---
+
+## Prefer Secure Transfer Alternatives
+
+Recommended alternatives:
+
+- SFTP
+- SCP
+- HTTPS uploads
+
+Anonymous FTP should only be used where required.
+
+---
+
+# Operational Notes
+
+- anonymous FTP uploads require careful permission management
+- SELinux labeling is critical for upload functionality
+- firewall configuration controls external access
+- public upload areas require continuous monitoring
+- enterprise environments should audit uploaded content regularly
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- anonymous FTP uploads are operational
+- SELinux integration is validated
+- upload recovery procedures are configured
+- FTP monitoring is verified
+- enterprise public file transfer practices are applied
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/12-ftp-vsftpd-anonymous-upload.png)
