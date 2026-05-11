@@ -1,46 +1,546 @@
-# Port Forwarding
+# Firewall Port Forwarding Configuration
 
-## Objective
+## Overview
 
-In this lab you will practice port forwarding on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates enterprise Linux firewall port forwarding using `firewalld` on RHEL 9 systems.
 
-## Prerequisites
+The workflow simulates production network traffic redirection scenarios involving application publishing, reverse proxy access, NAT forwarding, and secure service exposure.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `firewall-cmd --get-active-zones` and record the output in your lab notes.
-2. Run `firewall-cmd --list-all` and record the output in your lab notes.
-3. Run `firewall-cmd --add-service=http --permanent` and record the output in your lab notes.
-4. Run `firewall-cmd --reload` and record the output in your lab notes.
-5. Run `nft list ruleset` and record the output in your lab notes.
+This exercise covers:
 
-Example command sequence:
+- port forwarding configuration
+- NAT redirection
+- runtime and permanent forwarding rules
+- service publishing
+- forwarding validation
+- firewall auditing
+- enterprise network security practices
+
+---
+
+# Environment Information
+
+| Item | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel9-secure01.prod.lab |
+| Firewall Service | firewalld |
+| Backend | nftables |
+| SELinux | Enforcing |
+
+---
+
+# Port Forwarding Overview
+
+Port forwarding provides:
+
+- service redirection
+- NAT-based traffic handling
+- reverse proxy workflows
+- controlled application exposure
+- enterprise network segmentation
+
+---
+
+# Initial Firewall Validation
+
+## Verify firewalld Status
 
 ```bash
-firewall-cmd --get-active-zones
-firewall-cmd --list-all
-firewall-cmd --add-service=http --permanent
+systemctl status firewalld
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+---
+
+## Verify Firewall State
+
+```bash
+firewall-cmd --state
+```
+
+Expected output:
+
+```text
+running
+```
+
+---
+
+## Verify SELinux Status
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+# Initial Network Validation
+
+## Verify Listening Services
+
+```bash
+ss -tulnp
+```
+
+Expected output:
+
+```text
+LISTEN
+```
+
+---
+
+## Verify Active Interfaces
+
+```bash
+ip addr
+```
+
+Expected output:
+
+```text
+ens160
+```
+
+---
+
+# Enable IP Forwarding
+
+## Enable Runtime IP Forwarding
+
+```bash
+sysctl -w net.ipv4.ip_forward=1
+```
+
+Expected output:
+
+```text
+net.ipv4.ip_forward = 1
+```
+
+---
+
+## Verify Runtime Setting
+
+```bash
+sysctl net.ipv4.ip_forward
+```
+
+Expected output:
+
+```text
+1
+```
+
+---
+
+## Configure Persistent IP Forwarding
+
+```bash
+vi /etc/sysctl.conf
+```
+
+Add:
+
+```text
+net.ipv4.ip_forward = 1
+```
+
+---
+
+## Apply Persistent Configuration
+
+```bash
+sysctl -p
+```
+
+---
+
+# Application Service Validation
+
+## Start Web Service
+
+```bash
+systemctl start httpd
+```
+
+---
+
+## Verify HTTP Service
+
+```bash
+systemctl status httpd
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+---
+
+## Verify HTTP Listening Port
+
+```bash
+ss -tulnp | grep httpd
+```
+
+Expected output:
+
+```text
+:80
+```
+
+---
+
+# Configure Basic Port Forwarding
+
+## Forward Port 8080 to Port 80
+
+```bash
+firewall-cmd \
+--add-forward-port=port=8080:proto=tcp:toport=80
+```
+
+---
+
+## Verify Forward Rule
+
+```bash
+firewall-cmd --list-forward-ports
+```
+
+Expected output:
+
+```text
+port=8080:proto=tcp:toport=80
+```
+
+---
+
+# Configure Permanent Forwarding
+
+## Create Persistent Forward Rule
+
+```bash
+firewall-cmd --permanent \
+--add-forward-port=port=8443:proto=tcp:toport=443
+```
+
+---
+
+## Reload Firewall Configuration
+
+```bash
 firewall-cmd --reload
+```
+
+Expected output:
+
+```text
+success
+```
+
+---
+
+## Verify Persistent Rule
+
+```bash
+firewall-cmd --list-forward-ports
+```
+
+Expected output:
+
+```text
+port=8443:proto=tcp:toport=443
+```
+
+---
+
+# Configure Forwarding to Another Host
+
+## Forward Traffic to Internal Server
+
+```bash
+firewall-cmd --permanent \
+--add-forward-port=port=9000:proto=tcp:toaddr=192.168.1.50:toport=80
+```
+
+---
+
+## Reload Firewall
+
+```bash
+firewall-cmd --reload
+```
+
+---
+
+## Verify Remote Forward Rule
+
+```bash
+firewall-cmd --list-forward-ports
+```
+
+Expected output:
+
+```text
+toaddr=192.168.1.50
+```
+
+---
+
+# Masquerading Configuration
+
+## Enable NAT Masquerading
+
+```bash
+firewall-cmd --add-masquerade
+```
+
+---
+
+## Configure Permanent Masquerading
+
+```bash
+firewall-cmd --permanent --add-masquerade
+```
+
+---
+
+## Reload Firewall
+
+```bash
+firewall-cmd --reload
+```
+
+---
+
+## Verify Masquerading
+
+```bash
+firewall-cmd --list-all
+```
+
+Expected output:
+
+```text
+masquerade: yes
+```
+
+---
+
+# Connectivity Validation
+
+## Verify Local HTTP Access
+
+```bash
+curl http://localhost
+```
+
+Expected output:
+
+```text
+HTTP response
+```
+
+---
+
+## Verify Forwarded Port Access
+
+```bash
+curl http://localhost:8080
+```
+
+Expected output:
+
+```text
+HTTP response
+```
+
+---
+
+## Verify HTTPS Forwarding
+
+```bash
+curl -k https://localhost:8443
+```
+
+---
+
+# Firewall Auditing
+
+## Verify Active Rules
+
+```bash
+firewall-cmd --list-all
+```
+
+---
+
+## Verify Forward Ports
+
+```bash
+firewall-cmd --list-forward-ports
+```
+
+---
+
+## Verify NAT Rules
+
+```bash
 nft list ruleset
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+forward-port
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+# Remove Forwarding Rule
 
-## Cleanup
+## Remove Runtime Rule
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+```bash
+firewall-cmd \
+--remove-forward-port=port=8080:proto=tcp:toport=80
+```
 
-## Operator Notes
+---
 
-Treat Port Forwarding as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+## Verify Rule Removal
+
+```bash
+firewall-cmd --list-forward-ports
+```
+
+Expected output:
+
+```text
+8080 removed
+```
+
+---
+
+# Persistence Validation
+
+## Reboot Validation
+
+```bash
+reboot
+```
+
+After reboot:
+
+```bash
+firewall-cmd --list-forward-ports
+```
+
+Expected output:
+
+```text
+8443
+9000
+```
+
+Permanent forwarding rules remain active after reboot.
+
+---
+
+# Security Validation
+
+## Verify Listening Ports
+
+```bash
+ss -tulnp
+```
+
+---
+
+## Verify Open Firewall Rules
+
+```bash
+firewall-cmd --list-all
+```
+
+---
+
+# Operational Recommendations
+
+## Limit Forwarded Services
+
+Enterprise systems should forward only:
+
+- required application ports
+- approved enterprise services
+- monitored production workloads
+
+---
+
+## Use Forwarding with Reverse Proxies Carefully
+
+Port forwarding should be combined with:
+
+- TLS encryption
+- application authentication
+- network segmentation
+- enterprise monitoring
+
+---
+
+## Audit NAT and Forwarding Rules Regularly
+
+Enterprise monitoring should validate:
+
+- unauthorized forwarding rules
+- exposed services
+- unexpected NAT policies
+- insecure application exposure
+
+---
+
+# Operational Notes
+
+- firewalld supports dynamic port forwarding
+- masquerading enables NAT functionality
+- forwarding rules require careful auditing
+- runtime rules are temporary
+- enterprise environments require strict service exposure governance
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- firewall port forwarding is operational
+- NAT masquerading is validated
+- runtime and permanent forwarding rules are configured
+- application forwarding workflows are verified
+- enterprise network exposure practices are applied
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/07-firewall-port-forwarding.png)
