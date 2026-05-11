@@ -1,46 +1,489 @@
-# Bonding
+# Network Bonding Configuration
 
-## Objective
+## Overview
 
-In this lab you will practice bonding on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates enterprise Linux network bonding configuration on RHEL 9 systems.
 
-## Prerequisites
+The workflow simulates production high-availability networking scenarios involving NIC redundancy, failover validation, load balancing, and enterprise network resilience.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `ip addr show` and record the output in your lab notes.
-2. Run `ip route show` and record the output in your lab notes.
-3. Run `nmcli device status` and record the output in your lab notes.
-4. Run `nmcli connection show` and record the output in your lab notes.
-5. Run `ss -tulpen` and record the output in your lab notes.
+This exercise covers:
 
-Example command sequence:
+- network bonding configuration
+- active-backup bonding mode
+- interface redundancy
+- failover validation
+- NetworkManager integration
+- bonding monitoring
+- enterprise network availability practices
+
+---
+
+# Environment Information
+
+| Item | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel9-network01.prod.lab |
+| Bond Interface | bond0 |
+| Physical Interfaces | ens160, ens192 |
+| Bonding Mode | active-backup |
+| SELinux | Enforcing |
+
+---
+
+# Bonding Overview
+
+Network bonding provides:
+
+- NIC redundancy
+- failover protection
+- network resilience
+- increased availability
+- enterprise fault tolerance
+
+Bonding modes include:
+
+| Mode | Purpose |
+|---|---|
+| active-backup | Failover redundancy |
+| balance-rr | Round-robin balancing |
+| 802.3ad | LACP aggregation |
+
+---
+
+# Initial Network Validation
+
+## Verify Active Interfaces
 
 ```bash
-ip addr show
-ip route show
 nmcli device status
-nmcli connection show
-ss -tulpen
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+ens160
+ens192
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+## Verify SELinux Status
 
-## Cleanup
+```bash
+getenforce
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+Enforcing
+```
 
-Treat Bonding as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+## Verify IP Configuration
+
+```bash
+ip addr
+```
+
+Expected output:
+
+```text
+ens160
+ens192
+```
+
+---
+
+# Create Bond Interface
+
+## Create bond0 Connection
+
+```bash
+nmcli connection add \
+type bond \
+ifname bond0 \
+mode active-backup
+```
+
+Expected output:
+
+```text
+Connection 'bond0' successfully added
+```
+
+---
+
+## Verify Bond Connection
+
+```bash
+nmcli connection show
+```
+
+Expected output:
+
+```text
+bond0
+```
+
+---
+
+# Configure Bond IP Address
+
+## Assign Static IP Address
+
+```bash
+nmcli connection modify bond0 \
+ipv4.addresses 192.168.1.100/24 \
+ipv4.gateway 192.168.1.1 \
+ipv4.method manual
+```
+
+---
+
+## Configure DNS Server
+
+```bash
+nmcli connection modify bond0 \
+ipv4.dns "8.8.8.8"
+```
+
+---
+
+# Add Slave Interfaces
+
+## Add ens160 to bond0
+
+```bash
+nmcli connection add \
+type ethernet \
+slave-type bond \
+ifname ens160 \
+master bond0
+```
+
+---
+
+## Add ens192 to bond0
+
+```bash
+nmcli connection add \
+type ethernet \
+slave-type bond \
+ifname ens192 \
+master bond0
+```
+
+---
+
+## Verify Slave Interfaces
+
+```bash
+nmcli connection show
+```
+
+Expected output:
+
+```text
+bond-slave-ens160
+bond-slave-ens192
+```
+
+---
+
+# Activate Bonding
+
+## Bring Up bond0
+
+```bash
+nmcli connection up bond0
+```
+
+---
+
+## Activate Slave Interfaces
+
+```bash
+nmcli connection up bond-slave-ens160
+nmcli connection up bond-slave-ens192
+```
+
+---
+
+## Verify Bond Activation
+
+```bash
+ip addr show bond0
+```
+
+Expected output:
+
+```text
+bond0
+```
+
+---
+
+# Bond Status Validation
+
+## Verify Bonding Information
+
+```bash
+cat /proc/net/bonding/bond0
+```
+
+Expected output:
+
+```text
+Bonding Mode: fault-tolerance (active-backup)
+```
+
+---
+
+## Verify Active Slave
+
+```bash
+cat /proc/net/bonding/bond0
+```
+
+Expected output:
+
+```text
+Currently Active Slave: ens160
+```
+
+---
+
+# Connectivity Validation
+
+## Verify Gateway Reachability
+
+```bash
+ping -c 4 192.168.1.1
+```
+
+Expected output:
+
+```text
+4 packets transmitted
+```
+
+---
+
+## Verify DNS Connectivity
+
+```bash
+ping -c 4 google.com
+```
+
+Expected output:
+
+```text
+bytes from
+```
+
+---
+
+# Failover Validation
+
+## Simulate Primary Interface Failure
+
+```bash
+nmcli device disconnect ens160
+```
+
+---
+
+## Verify Bond Status
+
+```bash
+cat /proc/net/bonding/bond0
+```
+
+Expected output:
+
+```text
+Currently Active Slave: ens192
+```
+
+Failover occurs automatically.
+
+---
+
+## Verify Network Connectivity
+
+```bash
+ping -c 4 8.8.8.8
+```
+
+Expected output:
+
+```text
+0% packet loss
+```
+
+---
+
+# Restore Primary Interface
+
+## Reconnect ens160
+
+```bash
+nmcli device connect ens160
+```
+
+---
+
+## Verify Bond Recovery
+
+```bash
+cat /proc/net/bonding/bond0
+```
+
+Expected output:
+
+```text
+ens160
+```
+
+---
+
+# Monitoring Validation
+
+## Verify Interface Statistics
+
+```bash
+ip -s link show bond0
+```
+
+---
+
+## Verify NetworkManager Status
+
+```bash
+systemctl status NetworkManager
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+---
+
+# Persistence Validation
+
+## Reboot Validation
+
+```bash
+reboot
+```
+
+After reboot:
+
+```bash
+ip addr show bond0
+```
+
+Expected output:
+
+```text
+bond0
+```
+
+Bonding configuration remains persistent after reboot.
+
+---
+
+# Security Validation
+
+## Verify Listening Services
+
+```bash
+ss -tulnp
+```
+
+---
+
+## Verify Routing Table
+
+```bash
+ip route
+```
+
+Expected output:
+
+```text
+default via 192.168.1.1
+```
+
+---
+
+# Operational Recommendations
+
+## Use Bonding for Critical Systems
+
+Recommended environments:
+
+- virtualization hosts
+- enterprise application servers
+- database servers
+- production clusters
+
+---
+
+## Prefer Active-Backup for Simplicity
+
+Benefits:
+
+- predictable failover
+- simple switch configuration
+- enterprise reliability
+- easier troubleshooting
+
+---
+
+## Monitor Bond Health Continuously
+
+Enterprise monitoring should validate:
+
+- slave interface failures
+- failover events
+- packet loss
+- interface errors
+- link degradation
+
+---
+
+# Operational Notes
+
+- bonding improves network redundancy
+- active-backup mode prioritizes availability
+- NetworkManager simplifies bonding administration
+- failover occurs automatically
+- enterprise environments require continuous interface monitoring
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- network bonding is operational
+- failover redundancy is validated
+- bond monitoring is configured
+- connectivity resilience is verified
+- enterprise high-availability networking practices are applied
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/08-networking-bonding.png)
