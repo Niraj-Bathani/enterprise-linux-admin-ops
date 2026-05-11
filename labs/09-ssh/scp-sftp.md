@@ -1,46 +1,577 @@
-# Scp Sftp
+# SCP and SFTP File Transfer Operations
 
-## Objective
+## Overview
 
-In this lab you will practice scp sftp on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates enterprise Linux secure file transfer operations using SCP and SFTP on RHEL 9 systems.
 
-## Prerequisites
+The workflow simulates production secure file exchange scenarios involving encrypted transfers, remote directory management, automated copy operations, and enterprise data movement practices.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `sshd -t` and record the output in your lab notes.
-2. Run `systemctl reload sshd` and record the output in your lab notes.
-3. Run `ssh -i ~/.ssh/id_ed25519 user@server` and record the output in your lab notes.
-4. Run `scp file user@server:/tmp/` and record the output in your lab notes.
-5. Run `sftp user@server` and record the output in your lab notes.
+This exercise covers:
 
-Example command sequence:
+- SCP file transfers
+- SFTP interactive sessions
+- secure remote file management
+- SSH-based authentication
+- transfer validation
+- file integrity verification
+- enterprise secure transfer practices
+
+---
+
+# Environment Information
+
+| Item | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel9-ssh01.prod.lab |
+| Transfer Protocols | SCP, SFTP |
+| SSH Service | OpenSSH |
+| SELinux | Enforcing |
+
+---
+
+# SCP and SFTP Overview
+
+SCP and SFTP provide:
+
+- encrypted file transfers
+- secure remote access
+- enterprise data movement
+- authenticated sessions
+- secure administrative operations
+
+---
+
+# Initial Validation
+
+## Verify SSH Service Status
 
 ```bash
-sshd -t
-systemctl reload sshd
-ssh -i ~/.ssh/id_ed25519 user@server
-scp file user@server:/tmp/
-sftp user@server
+systemctl status sshd
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+active (running)
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+## Verify SSH Port
 
-## Cleanup
+```bash
+ss -tulnp | grep :22
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+LISTEN
+```
 
-Treat Scp Sftp as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+## Verify SELinux Status
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+# Create Test User
+
+## Create Transfer User
+
+```bash
+useradd transfer01
+```
+
+---
+
+## Configure Password
+
+```bash
+passwd transfer01
+```
+
+Expected output:
+
+```text
+password updated successfully
+```
+
+---
+
+## Verify User Account
+
+```bash
+id transfer01
+```
+
+Expected output:
+
+```text
+uid=
+```
+
+---
+
+# Create Test Files
+
+## Create Local Transfer Files
+
+```bash
+mkdir -p /data/transfers
+```
+
+---
+
+## Generate Sample Files
+
+```bash
+echo "Enterprise backup report" \
+> /data/transfers/report.txt
+
+echo "Application deployment package" \
+> /data/transfers/deploy.log
+```
+
+---
+
+## Verify File Creation
+
+```bash
+ls -lh /data/transfers
+```
+
+Expected output:
+
+```text
+report.txt
+deploy.log
+```
+
+---
+
+# SCP File Transfer
+
+## Copy File to Remote User Home
+
+```bash
+scp /data/transfers/report.txt \
+transfer01@localhost:/home/transfer01/
+```
+
+Expected output:
+
+```text
+100%
+```
+
+---
+
+## Verify Remote File
+
+```bash
+ssh transfer01@localhost \
+'ls -lh /home/transfer01/'
+```
+
+Expected output:
+
+```text
+report.txt
+```
+
+---
+
+# SCP Recursive Copy
+
+## Copy Entire Directory
+
+```bash
+scp -r /data/transfers \
+transfer01@localhost:/home/transfer01/
+```
+
+---
+
+## Verify Recursive Transfer
+
+```bash
+ssh transfer01@localhost \
+'find /home/transfer01/transfers'
+```
+
+Expected output:
+
+```text
+deploy.log
+```
+
+---
+
+# SCP File Retrieval
+
+## Retrieve Remote File
+
+```bash
+scp transfer01@localhost:/home/transfer01/report.txt \
+/tmp/
+```
+
+---
+
+## Verify Retrieved File
+
+```bash
+ls -lh /tmp/report.txt
+```
+
+Expected output:
+
+```text
+report.txt
+```
+
+---
+
+# SFTP Interactive Session
+
+## Start SFTP Session
+
+```bash
+sftp transfer01@localhost
+```
+
+Expected prompt:
+
+```text
+sftp>
+```
+
+---
+
+## Verify Remote Directory
+
+```bash
+pwd
+ls
+```
+
+Expected output:
+
+```text
+/home/transfer01
+```
+
+---
+
+## Upload File via SFTP
+
+```bash
+put /data/transfers/deploy.log
+```
+
+Expected output:
+
+```text
+Uploading
+```
+
+---
+
+## Download File via SFTP
+
+```bash
+get report.txt
+```
+
+Expected output:
+
+```text
+Fetching
+```
+
+---
+
+## Exit SFTP Session
+
+```bash
+exit
+```
+
+---
+
+# File Integrity Validation
+
+## Generate File Checksums
+
+```bash
+sha256sum /data/transfers/report.txt
+sha256sum /tmp/report.txt
+```
+
+Expected output:
+
+```text
+matching checksum values
+```
+
+---
+
+# SSH Key-Based Transfer Validation
+
+## Generate SSH Key Pair
+
+```bash
+ssh-keygen -t ed25519
+```
+
+---
+
+## Deploy Public Key
+
+```bash
+ssh-copy-id transfer01@localhost
+```
+
+Expected output:
+
+```text
+Number of key(s) added
+```
+
+---
+
+## Verify Passwordless SCP
+
+```bash
+scp /data/transfers/deploy.log \
+transfer01@localhost:/home/transfer01/
+```
+
+Expected behavior:
+
+```text
+No password prompt
+```
+
+---
+
+# Transfer Monitoring
+
+## Verify Established SSH Sessions
+
+```bash
+ss -ant | grep :22
+```
+
+Expected output:
+
+```text
+ESTAB
+```
+
+---
+
+## Verify Active SFTP Processes
+
+```bash
+ps -ef | grep sftp
+```
+
+Expected output:
+
+```text
+sftp-server
+```
+
+---
+
+# Logging Validation
+
+## Verify SSH Transfer Logs
+
+```bash
+journalctl -u sshd
+```
+
+Expected output:
+
+```text
+subsystem request for sftp
+```
+
+---
+
+## Verify Secure Logs
+
+```bash
+grep sshd /var/log/secure
+```
+
+Expected output:
+
+```text
+Accepted publickey
+```
+
+---
+
+# Connectivity Validation
+
+## Verify SSH Connectivity
+
+```bash
+ssh transfer01@localhost hostname
+```
+
+Expected output:
+
+```text
+rhel9-ssh01.prod.lab
+```
+
+---
+
+## Verify Port Connectivity
+
+```bash
+nc -zv localhost 22
+```
+
+Expected output:
+
+```text
+succeeded
+```
+
+---
+
+# Persistence Validation
+
+## Reboot Validation
+
+```bash
+reboot
+```
+
+After reboot:
+
+```bash
+scp /data/transfers/report.txt \
+transfer01@localhost:/tmp/
+```
+
+Expected output:
+
+```text
+100%
+```
+
+Secure transfer services remain operational after reboot.
+
+---
+
+# Security Validation
+
+## Verify Firewall Access
+
+```bash
+firewall-cmd --list-services
+```
+
+Expected output:
+
+```text
+ssh
+```
+
+---
+
+## Verify Active Firewall Zones
+
+```bash
+firewall-cmd --get-active-zones
+```
+
+Expected output:
+
+```text
+public
+```
+
+---
+
+# Operational Recommendations
+
+## Prefer Encrypted Transfers
+
+Enterprise environments should avoid:
+
+- FTP
+- Telnet-based transfers
+- unsecured file movement
+
+---
+
+## Use SSH Keys for Automation
+
+Benefits:
+
+- secure automation
+- passwordless authentication
+- reduced credential exposure
+- enterprise scalability
+
+---
+
+## Validate File Integrity
+
+Enterprise file transfers should verify:
+
+- checksums
+- successful transfer completion
+- expected file ownership
+- transfer logging
+
+---
+
+# Operational Notes
+
+- SCP and SFTP use encrypted SSH transport
+- SFTP provides interactive remote file management
+- SSH keys improve automation security
+- integrity validation protects enterprise data
+- enterprise environments require audited transfer workflows
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- SCP and SFTP operations are operational
+- secure file transfers are validated
+- SSH key-based transfers are configured
+- integrity validation is verified
+- enterprise secure transfer practices are applied
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/09-ssh-scp-sftp.png)
