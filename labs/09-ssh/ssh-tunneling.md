@@ -1,46 +1,568 @@
-# SSH Tunneling
+# SSH Tunneling and Port Forwarding
 
-## Objective
+## Overview
 
-In this lab you will practice ssh tunneling on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates enterprise Linux SSH tunneling and secure port forwarding on RHEL 9 systems.
 
-## Prerequisites
+The workflow simulates production secure connectivity scenarios involving local forwarding, remote forwarding, dynamic SOCKS proxies, encrypted service access, and enterprise secure transport practices.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `sshd -t` and record the output in your lab notes.
-2. Run `systemctl reload sshd` and record the output in your lab notes.
-3. Run `ssh -i ~/.ssh/id_ed25519 user@server` and record the output in your lab notes.
-4. Run `scp file user@server:/tmp/` and record the output in your lab notes.
-5. Run `sftp user@server` and record the output in your lab notes.
+This exercise covers:
 
-Example command sequence:
+- local SSH port forwarding
+- remote SSH port forwarding
+- dynamic SOCKS proxy configuration
+- secure application tunneling
+- SSH connectivity validation
+- encrypted transport monitoring
+- enterprise secure access practices
+
+---
+
+# Environment Information
+
+| Item | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel9-ssh01.prod.lab |
+| SSH Service | OpenSSH |
+| Tunnel Methods | Local, Remote, Dynamic |
+| SELinux | Enforcing |
+
+---
+
+# SSH Tunneling Overview
+
+SSH tunneling provides:
+
+- encrypted traffic forwarding
+- secure remote application access
+- network segmentation bypass for approved workflows
+- administrative service protection
+- enterprise secure transport
+
+---
+
+# Initial Validation
+
+## Verify SSH Service Status
 
 ```bash
-sshd -t
-systemctl reload sshd
-ssh -i ~/.ssh/id_ed25519 user@server
-scp file user@server:/tmp/
-sftp user@server
+systemctl status sshd
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+active (running)
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+## Verify SSH Listening Port
 
-## Cleanup
+```bash
+ss -tulnp | grep :22
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+LISTEN
+```
 
-Treat SSH Tunneling as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+## Verify SELinux Status
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+# Create Test Web Service
+
+## Install HTTP Service
+
+```bash
+dnf install -y httpd
+```
+
+---
+
+## Start HTTP Service
+
+```bash
+systemctl enable --now httpd
+```
+
+---
+
+## Verify HTTP Service
+
+```bash
+systemctl status httpd
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+---
+
+## Verify HTTP Listening Port
+
+```bash
+ss -tulnp | grep :80
+```
+
+Expected output:
+
+```text
+:80
+```
+
+---
+
+# Local Port Forwarding
+
+## Create Local SSH Tunnel
+
+```bash
+ssh -L 8080:localhost:80 \
+devops01@localhost
+```
+
+---
+
+## Verify Tunnel Session
+
+Expected behavior:
+
+```text
+SSH session established
+```
+
+---
+
+## Validate Local Forwarding
+
+In another terminal:
+
+```bash
+curl http://localhost:8080
+```
+
+Expected output:
+
+```text
+Test Page
+```
+
+Traffic is securely forwarded through SSH.
+
+---
+
+# Tunnel Validation
+
+## Verify Listening Tunnel Port
+
+```bash
+ss -tulnp | grep 8080
+```
+
+Expected output:
+
+```text
+127.0.0.1:8080
+```
+
+---
+
+## Verify SSH Tunnel Process
+
+```bash
+ps -ef | grep ssh
+```
+
+Expected output:
+
+```text
+ssh -L
+```
+
+---
+
+# Remote Port Forwarding
+
+## Create Remote Forwarding Session
+
+```bash
+ssh -R 9090:localhost:80 \
+devops01@localhost
+```
+
+---
+
+## Validate Remote Tunnel
+
+In another terminal:
+
+```bash
+curl http://localhost:9090
+```
+
+Expected output:
+
+```text
+Test Page
+```
+
+---
+
+# Dynamic SOCKS Proxy
+
+## Create Dynamic SSH Tunnel
+
+```bash
+ssh -D 1080 devops01@localhost
+```
+
+---
+
+## Verify SOCKS Listener
+
+```bash
+ss -tulnp | grep 1080
+```
+
+Expected output:
+
+```text
+127.0.0.1:1080
+```
+
+---
+
+## Test SOCKS Proxy
+
+```bash
+curl --socks5 localhost:1080 \
+http://example.com
+```
+
+Expected output:
+
+```text
+Example Domain
+```
+
+---
+
+# Background Tunnel Configuration
+
+## Create Background Tunnel
+
+```bash
+ssh -f -N -L 8443:localhost:443 \
+devops01@localhost
+```
+
+---
+
+## Verify Background Tunnel
+
+```bash
+ps -ef | grep 8443
+```
+
+Expected output:
+
+```text
+ssh -f -N
+```
+
+---
+
+## Validate Tunnel Connectivity
+
+```bash
+nc -zv localhost 8443
+```
+
+Expected output:
+
+```text
+succeeded
+```
+
+---
+
+# Tunnel Monitoring
+
+## Verify Established SSH Sessions
+
+```bash
+ss -ant | grep :22
+```
+
+Expected output:
+
+```text
+ESTAB
+```
+
+---
+
+## Verify Active Tunnels
+
+```bash
+lsof -i -P -n | grep ssh
+```
+
+Expected output:
+
+```text
+LISTEN
+```
+
+---
+
+# SSH Hardening Validation
+
+## Verify Tunnel Permissions
+
+```bash
+grep AllowTcpForwarding /etc/ssh/sshd_config
+```
+
+Expected output:
+
+```text
+AllowTcpForwarding yes
+```
+
+---
+
+## Restrict Tunnel Access
+
+```bash
+vi /etc/ssh/sshd_config
+```
+
+Set:
+
+```text
+AllowTcpForwarding local
+```
+
+---
+
+## Restart SSH Service
+
+```bash
+systemctl restart sshd
+```
+
+---
+
+## Verify SSH Service
+
+```bash
+systemctl status sshd
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+---
+
+# Logging Validation
+
+## Verify SSH Tunnel Logs
+
+```bash
+journalctl -u sshd
+```
+
+Expected output:
+
+```text
+Accepted publickey
+```
+
+---
+
+## Verify Secure Logs
+
+```bash
+grep sshd /var/log/secure
+```
+
+Expected output:
+
+```text
+session opened
+```
+
+---
+
+# Connectivity Validation
+
+## Verify SSH Connectivity
+
+```bash
+ssh devops01@localhost hostname
+```
+
+Expected output:
+
+```text
+rhel9-ssh01.prod.lab
+```
+
+---
+
+## Verify HTTP Access Through Tunnel
+
+```bash
+curl http://localhost:8080
+```
+
+Expected output:
+
+```text
+Test Page
+```
+
+---
+
+# Security Validation
+
+## Verify Firewall Services
+
+```bash
+firewall-cmd --list-services
+```
+
+Expected output:
+
+```text
+ssh http
+```
+
+---
+
+## Verify Active Firewall Zones
+
+```bash
+firewall-cmd --get-active-zones
+```
+
+Expected output:
+
+```text
+public
+```
+
+---
+
+# Persistence Validation
+
+## Reboot Validation
+
+```bash
+reboot
+```
+
+After reboot:
+
+```bash
+systemctl status sshd
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+SSH services remain operational after reboot.
+
+---
+
+# Operational Recommendations
+
+## Use SSH Tunnels for Secure Administrative Access
+
+Recommended use cases:
+
+- internal web applications
+- database administration
+- secure API access
+- temporary maintenance operations
+
+---
+
+## Restrict Port Forwarding Carefully
+
+Enterprise systems should:
+
+- limit unnecessary forwarding
+- monitor tunnel activity
+- audit remote access
+- restrict unauthorized SOCKS proxies
+
+---
+
+## Monitor SSH Tunnel Usage
+
+Enterprise monitoring should validate:
+
+- unusual forwarding activity
+- unauthorized remote tunnels
+- excessive SSH sessions
+- exposed internal services
+
+---
+
+# Operational Notes
+
+- SSH tunneling encrypts forwarded traffic
+- local forwarding secures internal services
+- SOCKS proxies provide dynamic encrypted routing
+- unrestricted forwarding may introduce security risks
+- enterprise environments require tunnel auditing and monitoring
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- SSH tunneling is operational
+- local and remote forwarding are validated
+- dynamic SOCKS proxies are configured
+- tunnel monitoring is verified
+- enterprise secure transport practices are applied
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/09-ssh-ssh-tunneling.png)
