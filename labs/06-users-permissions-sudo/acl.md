@@ -1,46 +1,431 @@
-# ACL
+# Access Control Lists (ACL) Administration
 
-## Objective
+## Overview
 
-In this lab you will practice acl on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates enterprise Linux Access Control List (ACL) management on RHEL 9 systems.
 
-## Prerequisites
+The workflow simulates production filesystem permission administration tasks used for collaborative environments, shared application storage, and granular access management.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `id alice` and record the output in your lab notes.
-2. Run `getent passwd alice` and record the output in your lab notes.
-3. Run `useradd -m alice` and record the output in your lab notes.
-4. Run `passwd -S alice` and record the output in your lab notes.
-5. Run `usermod -aG wheel alice` and record the output in your lab notes.
+This exercise covers:
 
-Example command sequence:
+- ACL configuration
+- user ACL management
+- group ACL management
+- default ACL configuration
+- ACL inheritance
+- ACL validation
+- enterprise access governance practices
 
-```bash
-id alice
-getent passwd alice
-useradd -m alice
-passwd -S alice
-usermod -aG wheel alice
+---
+
+# Environment Information
+
+| Item | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel9-access01.prod.lab |
+| Filesystem | XFS |
+| Access Utilities | setfacl, getfacl |
+| SELinux | Enforcing |
+
+---
+
+# ACL Overview
+
+ACLs provide:
+
+- granular permission control
+- multi-user access management
+- group collaboration support
+- permission inheritance
+- enterprise filesystem governance
+
+ACLs extend traditional Linux permissions beyond:
+
+```text
+owner / group / others
 ```
 
-## Expected Output
+---
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+# Initial Filesystem Validation
 
-## Validation
+## Verify Mounted Filesystem
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+```bash
+mount | grep xfs
+```
 
-## Cleanup
+Expected output:
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+```text
+rw,relatime
+```
 
-## Operator Notes
+---
 
-Treat ACL as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+## Verify ACL Support
+
+```bash
+tune2fs -l /dev/sda1 | grep acl
+```
+
+Expected output:
+
+```text
+Default mount options: user_xattr acl
+```
+
+---
+
+# Create Shared Directory
+
+## Create Collaboration Directory
+
+```bash
+mkdir -p /shared-projects
+```
+
+---
+
+## Verify Directory Creation
+
+```bash
+ls -ld /shared-projects
+```
+
+Expected output:
+
+```text
+drwxr-xr-x
+```
+
+---
+
+# Create Test Users
+
+## Create Project Users
+
+```bash
+useradd devuser01
+useradd qauser01
+```
+
+---
+
+## Verify User Accounts
+
+```bash
+id devuser01
+id qauser01
+```
+
+Expected output:
+
+```text
+uid=1001
+```
+
+---
+
+# Configure User ACLs
+
+## Grant ACL Permissions
+
+```bash
+setfacl -m u:devuser01:rwx /shared-projects
+```
+
+Explanation:
+
+| Option | Purpose |
+|---|---|
+| `-m` | Modify ACL |
+| `u:` | User ACL |
+| `rwx` | Read/write/execute |
+
+---
+
+## Verify User ACLs
+
+```bash
+getfacl /shared-projects
+```
+
+Expected output:
+
+```text
+user:devuser01:rwx
+```
+
+---
+
+# Configure Group ACLs
+
+## Create Project Group
+
+```bash
+groupadd project-team
+```
+
+---
+
+## Assign Group ACL
+
+```bash
+setfacl -m g:project-team:rwx /shared-projects
+```
+
+---
+
+## Verify Group ACLs
+
+```bash
+getfacl /shared-projects
+```
+
+Expected output:
+
+```text
+group:project-team:rwx
+```
+
+---
+
+# Configure Default ACLs
+
+## Enable ACL Inheritance
+
+```bash
+setfacl -d -m u:devuser01:rwx /shared-projects
+```
+
+---
+
+## Verify Default ACLs
+
+```bash
+getfacl /shared-projects
+```
+
+Expected output:
+
+```text
+default:user:devuser01:rwx
+```
+
+---
+
+# ACL Inheritance Validation
+
+## Create Test File
+
+```bash
+touch /shared-projects/testfile.txt
+```
+
+---
+
+## Verify Inherited ACLs
+
+```bash
+getfacl /shared-projects/testfile.txt
+```
+
+Expected output:
+
+```text
+user:devuser01:rwx
+```
+
+---
+
+# ACL Permission Validation
+
+## Verify Access Permissions
+
+```bash
+sudo -u devuser01 touch /shared-projects/dev-file.txt
+```
+
+---
+
+## Validate File Ownership
+
+```bash
+ls -l /shared-projects
+```
+
+Expected output:
+
+```text
+dev-file.txt
+```
+
+---
+
+# Remove ACL Permissions
+
+## Remove User ACL
+
+```bash
+setfacl -x u:devuser01 /shared-projects
+```
+
+---
+
+## Verify ACL Removal
+
+```bash
+getfacl /shared-projects
+```
+
+Expected output:
+
+```text
+user:devuser01 removed
+```
+
+---
+
+# Remove Default ACLs
+
+## Remove Default ACL Entry
+
+```bash
+setfacl -x d:u:devuser01 /shared-projects
+```
+
+---
+
+## Verify Default ACL Removal
+
+```bash
+getfacl /shared-projects
+```
+
+---
+
+# Recursive ACL Configuration
+
+## Apply Recursive ACLs
+
+```bash
+setfacl -R -m g:project-team:rwx /shared-projects
+```
+
+---
+
+## Verify Recursive ACLs
+
+```bash
+getfacl -R /shared-projects
+```
+
+Expected output:
+
+```text
+group:project-team:rwx
+```
+
+---
+
+# Filesystem Validation
+
+## Verify Filesystem Usage
+
+```bash
+df -hT
+```
+
+Expected output:
+
+```text
+xfs
+```
+
+---
+
+# SELinux Validation
+
+## Verify SELinux Status
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+SELinux remains enabled throughout all ACL operations.
+
+---
+
+# Operational Recommendations
+
+## Use ACLs for Collaborative Environments
+
+Recommended environments:
+
+- shared development platforms
+- enterprise application teams
+- collaborative storage systems
+- departmental file shares
+
+---
+
+## Prefer Groups Over Individual ACLs
+
+Group-based ACLs improve:
+
+- administrative scalability
+- operational consistency
+- simplified permission management
+- enterprise governance
+
+---
+
+## Monitor ACL Complexity
+
+Excessive ACL usage may increase:
+
+- permission troubleshooting complexity
+- operational overhead
+- inconsistent access control
+
+Enterprise environments should maintain standardized ACL governance.
+
+---
+
+# Operational Notes
+
+- ACLs extend standard Linux permissions
+- default ACLs enable inheritance
+- recursive ACLs simplify large deployments
+- ACL auditing improves access governance
+- enterprise environments require controlled permission standards
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- ACL configuration is operational
+- user and group ACLs are validated
+- default ACL inheritance is verified
+- recursive ACL management is understood
+- enterprise access governance practices are applied
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/06-users-permissions-sudo-acl.png)
