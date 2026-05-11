@@ -1,46 +1,649 @@
-# NFS Troubleshooting
+# NFS Troubleshooting and Recovery
 
-## Objective
+## Overview
 
-In this lab you will practice nfs troubleshooting on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates enterprise Linux NFS troubleshooting and recovery procedures on RHEL 9 systems.
 
-## Prerequisites
+The workflow simulates production storage incidents involving mount failures, export issues, firewall restrictions, SELinux denials, stale file handles, and enterprise storage recovery practices.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `exportfs -v` and record the output in your lab notes.
-2. Run `showmount -e localhost` and record the output in your lab notes.
-3. Run `mount -t nfs server:/exports/tools /mnt/tools` and record the output in your lab notes.
-4. Run `nfsstat -s` and record the output in your lab notes.
-5. Run `journalctl -u nfs-server` and record the output in your lab notes.
+This exercise covers:
 
-Example command sequence:
+- NFS troubleshooting
+- export diagnostics
+- client connectivity validation
+- SELinux troubleshooting
+- stale mount recovery
+- logging and monitoring
+- enterprise storage incident response practices
+
+---
+
+# Environment Information
+
+| Item | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel9-nfs01.prod.lab |
+| NFS Export | /data/apps |
+| NFS Client | rhel9-client01.prod.lab |
+| SELinux | Enforcing |
+
+---
+
+# Troubleshooting Overview
+
+NFS troubleshooting commonly involves:
+
+- network connectivity failures
+- export misconfigurations
+- firewall restrictions
+- SELinux denials
+- stale file handles
+- RPC communication failures
+
+---
+
+# Initial Validation
+
+## Verify NFS Service Status
+
+```bash
+systemctl status nfs-server
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+---
+
+## Verify SELinux Status
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+## Verify Existing Exports
 
 ```bash
 exportfs -v
-showmount -e localhost
-mount -t nfs server:/exports/tools /mnt/tools
-nfsstat -s
-journalctl -u nfs-server
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+/data/apps
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+# Connectivity Troubleshooting
 
-## Cleanup
+## Verify Client Reachability
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+```bash
+ping -c 4 192.168.1.20
+```
 
-## Operator Notes
+Expected output:
 
-Treat NFS Troubleshooting as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+```text
+0% packet loss
+```
+
+---
+
+## Verify RPC Services
+
+```bash
+rpcinfo -p localhost
+```
+
+Expected output:
+
+```text
+nfs
+mountd
+```
+
+---
+
+## Verify Open NFS Ports
+
+```bash
+ss -tulpn | grep 2049
+```
+
+Expected output:
+
+```text
+2049
+```
+
+---
+
+# Export Troubleshooting
+
+## Simulate Broken Export
+
+```bash
+mv /etc/exports /etc/exports.bak
+```
+
+---
+
+## Reload Export Table
+
+```bash
+exportfs -rav
+```
+
+Expected output:
+
+```text
+Failed
+```
+
+---
+
+## Verify Missing Exports
+
+```bash
+exportfs -v
+```
+
+Expected output:
+
+```text
+(no exports)
+```
+
+---
+
+## Restore Export Configuration
+
+```bash
+mv /etc/exports.bak /etc/exports
+```
+
+---
+
+## Reload Exports
+
+```bash
+exportfs -rav
+```
+
+Expected output:
+
+```text
+exporting
+```
+
+---
+
+## Verify Export Recovery
+
+```bash
+exportfs -v
+```
+
+Expected output:
+
+```text
+/data/apps
+```
+
+---
+
+# Client Mount Troubleshooting
+
+## Simulate Mount Failure
+
+On client:
+
+```bash
+mount -t nfs \
+192.168.1.10:/invalid-share \
+/mnt/apps
+```
+
+Expected output:
+
+```text
+access denied
+```
+
+---
+
+## Verify Correct Export
+
+```bash
+showmount -e 192.168.1.10
+```
+
+Expected output:
+
+```text
+/data/apps
+```
+
+---
+
+## Restore Valid Mount
+
+```bash
+mount -t nfs \
+192.168.1.10:/data/apps \
+/mnt/apps
+```
+
+---
+
+## Verify Mounted Filesystem
+
+```bash
+mount | grep apps
+```
+
+Expected output:
+
+```text
+/data/apps
+```
+
+---
+
+# Firewall Troubleshooting
+
+## Simulate Firewall Restriction
+
+```bash
+firewall-cmd --remove-service=nfs
+```
+
+---
+
+## Reload Firewall Rules
+
+```bash
+firewall-cmd --reload
+```
+
+---
+
+## Verify Blocked Access
+
+From client:
+
+```bash
+showmount -e 192.168.1.10
+```
+
+Expected output:
+
+```text
+Connection timed out
+```
+
+---
+
+## Restore Firewall Access
+
+```bash
+firewall-cmd --permanent --add-service=nfs
+firewall-cmd --reload
+```
+
+---
+
+## Verify Connectivity Recovery
+
+```bash
+showmount -e 192.168.1.10
+```
+
+Expected output:
+
+```text
+/data/apps
+```
+
+---
+
+# SELinux Troubleshooting
+
+## Simulate Incorrect Label
+
+```bash
+chcon -t default_t /data/apps
+```
+
+---
+
+## Verify Broken Context
+
+```bash
+ls -Zd /data/apps
+```
+
+Expected output:
+
+```text
+default_t
+```
+
+---
+
+## Test Client Write Failure
+
+From client:
+
+```bash
+touch /mnt/apps/failed-write.txt
+```
+
+Expected output:
+
+```text
+Permission denied
+```
+
+---
+
+## Restore Correct Context
+
+```bash
+restorecon -Rv /data/apps
+```
+
+---
+
+## Verify Recovery Access
+
+```bash
+touch /mnt/apps/recovered-write.txt
+```
+
+Expected output:
+
+```text
+(no errors)
+```
+
+---
+
+# Stale File Handle Recovery
+
+## Simulate Stale Mount
+
+```bash
+systemctl restart nfs-server
+```
+
+---
+
+## Verify Client Errors
+
+From client:
+
+```bash
+ls /mnt/apps
+```
+
+Expected output:
+
+```text
+Stale file handle
+```
+
+---
+
+## Unmount Stale Filesystem
+
+```bash
+umount -f /mnt/apps
+```
+
+---
+
+## Remount Filesystem
+
+```bash
+mount -a
+```
+
+---
+
+## Verify Recovery Mount
+
+```bash
+df -h /mnt/apps
+```
+
+Expected output:
+
+```text
+Filesystem
+```
+
+---
+
+# Logging Validation
+
+## Verify NFS Logs
+
+```bash
+journalctl | grep nfs
+```
+
+Expected output:
+
+```text
+NFS
+```
+
+---
+
+## Verify SELinux Denials
+
+```bash
+ausearch -m AVC
+```
+
+Expected output:
+
+```text
+avc: denied
+```
+
+---
+
+## Verify Export Activity
+
+```bash
+journalctl | grep exportfs
+```
+
+Expected output:
+
+```text
+exporting
+```
+
+---
+
+# Monitoring Validation
+
+## Verify Mounted Shares
+
+```bash
+findmnt | grep nfs
+```
+
+Expected output:
+
+```text
+nfs
+```
+
+---
+
+## Verify RPC Services
+
+```bash
+rpcinfo -p localhost
+```
+
+Expected output:
+
+```text
+mountd
+```
+
+---
+
+## Verify Active Connections
+
+```bash
+ss -ant | grep 2049
+```
+
+Expected output:
+
+```text
+ESTAB
+```
+
+---
+
+# Persistence Validation
+
+## Reboot Validation
+
+```bash
+reboot
+```
+
+After reboot:
+
+```bash
+exportfs -v
+```
+
+Expected output:
+
+```text
+/data/apps
+```
+
+NFS exports and services remain persistent after reboot.
+
+---
+
+# Security Validation
+
+## Verify Firewall Services
+
+```bash
+firewall-cmd --list-services
+```
+
+Expected output:
+
+```text
+nfs
+```
+
+---
+
+## Verify SELinux Enforcement
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+# Operational Recommendations
+
+## Troubleshoot NFS Systematically
+
+Recommended workflow:
+
+1. verify network connectivity
+2. validate exports
+3. inspect firewall rules
+4. review SELinux logs
+5. verify client mounts
+
+---
+
+## Monitor Shared Storage Continuously
+
+Enterprise monitoring should validate:
+
+- export failures
+- client disconnects
+- stale file handles
+- SELinux denials
+- storage interruptions
+
+---
+
+## Maintain Recovery Procedures
+
+Recommended practices:
+
+- document export recovery
+- standardize firewall policies
+- audit SELinux labels
+- validate recovery testing regularly
+
+---
+
+# Operational Notes
+
+- NFS troubleshooting requires layered validation
+- firewall restrictions commonly impact exports
+- SELinux labeling errors may block client access
+- stale mounts require forced recovery procedures
+- enterprise environments require documented storage incident response
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- NFS troubleshooting workflows are operational
+- export recovery is validated
+- firewall and SELinux diagnostics are verified
+- stale mount recovery is configured
+- enterprise storage incident response practices are applied
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/11-nfs-troubleshooting.png)
