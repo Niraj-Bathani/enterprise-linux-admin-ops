@@ -1,46 +1,371 @@
-# Edquota Examples
+# edquota Administration Examples
 
-## Objective
+## Overview
 
-In this lab you will practice edquota examples on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates enterprise Linux quota management using the `edquota` utility on RHEL 9 systems.
 
-## Prerequisites
+The workflow simulates production filesystem quota administration activities used for multi-user environments, shared application platforms, and enterprise storage governance.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `id alice` and record the output in your lab notes.
-2. Run `getent passwd alice` and record the output in your lab notes.
-3. Run `useradd -m alice` and record the output in your lab notes.
-4. Run `passwd -S alice` and record the output in your lab notes.
-5. Run `usermod -aG wheel alice` and record the output in your lab notes.
+This exercise covers:
 
-Example command sequence:
+- user quota management
+- group quota administration
+- soft and hard limits
+- quota grace periods
+- quota replication
+- enterprise quota operational practices
+
+---
+
+# Environment Information
+
+| Item | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel9-storage01.prod.lab |
+| Filesystem | XFS |
+| Mount Point | /shared-data |
+| Quota Utility | edquota |
+| SELinux | Enforcing |
+
+---
+
+# Quota Overview
+
+The `edquota` utility provides:
+
+- interactive quota management
+- soft and hard limit configuration
+- user quota administration
+- group quota administration
+- quota policy replication
+
+---
+
+# Initial Quota Validation
+
+## Verify Mounted Filesystem
 
 ```bash
-id alice
-getent passwd alice
-useradd -m alice
-passwd -S alice
-usermod -aG wheel alice
+mount | grep quota
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+/usrquota,grpquota
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+## Verify Quota Status
 
-## Cleanup
+```bash
+quotaon -p /shared-data
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+user quotas enabled
+group quotas enabled
+```
 
-Treat Edquota Examples as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+# User Quota Configuration
+
+## Create Test User
+
+```bash
+useradd quotauser01
+```
+
+---
+
+## Configure User Quota
+
+```bash
+edquota -u quotauser01
+```
+
+Example configuration:
+
+```text
+Disk quotas for user quotauser01:
+/dev/mapper/rhel-root:
+blocks soft=500000 hard=600000
+inodes soft=1000 hard=1200
+```
+
+---
+
+# Soft and Hard Limit Explanation
+
+| Limit Type | Purpose |
+|---|---|
+| Soft Limit | Warning threshold |
+| Hard Limit | Absolute enforcement limit |
+
+---
+
+# Grace Period Configuration
+
+## Configure Grace Periods
+
+```bash
+edquota -t
+```
+
+Example configuration:
+
+```text
+Block grace period before enforcing soft limits for users:
+7days
+```
+
+---
+
+## Verify Grace Periods
+
+```bash
+repquota /shared-data
+```
+
+Expected output:
+
+```text
+Block grace time: 7days
+```
+
+---
+
+# Group Quota Configuration
+
+## Create Group
+
+```bash
+groupadd developers
+```
+
+---
+
+## Configure Group Quota
+
+```bash
+edquota -g developers
+```
+
+Example configuration:
+
+```text
+blocks soft=2G hard=3G
+```
+
+---
+
+## Verify Group Quotas
+
+```bash
+repquota /shared-data
+```
+
+Expected output:
+
+```text
+developers
+```
+
+---
+
+# Quota Replication
+
+## Copy Quotas Between Users
+
+```bash
+edquota -p quotauser01 quotauser02
+```
+
+This copies quota settings from one user to another.
+
+---
+
+## Verify Replicated Quotas
+
+```bash
+quota -u quotauser02
+```
+
+Expected output:
+
+```text
+Disk quotas for user quotauser02
+```
+
+---
+
+# Quota Usage Validation
+
+## Generate Test File
+
+```bash
+dd if=/dev/zero of=/shared-data/testfile.img bs=1M count=200
+```
+
+---
+
+## Verify Quota Usage
+
+```bash
+quota -u quotauser01
+```
+
+Expected output:
+
+```text
+blocks
+```
+
+---
+
+# Quota Enforcement Validation
+
+## Simulate Soft Limit Warning
+
+Create additional files until soft quota limits are exceeded.
+
+Expected output:
+
+```text
+warning: user quota exceeded
+```
+
+---
+
+## Simulate Hard Limit Enforcement
+
+Attempt additional writes after hard limit.
+
+Expected output:
+
+```text
+Disk quota exceeded
+```
+
+---
+
+# Quota Reporting Validation
+
+## Generate Quota Report
+
+```bash
+repquota -a
+```
+
+Expected output:
+
+```text
+user quota summary
+```
+
+---
+
+# Filesystem Validation
+
+## Verify Mounted Filesystem
+
+```bash
+df -hT | grep shared-data
+```
+
+Expected output:
+
+```text
+xfs
+```
+
+---
+
+# SELinux Validation
+
+## Verify SELinux Status
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+SELinux remains enabled throughout all quota operations.
+
+---
+
+# Operational Recommendations
+
+## Use Soft Limits for Early Warning
+
+Soft limits provide:
+
+- user notification
+- operational flexibility
+- storage planning opportunities
+
+Hard limits should enforce strict storage governance.
+
+---
+
+## Apply Group Quotas for Shared Teams
+
+Group quotas improve:
+
+- shared storage management
+- collaborative workload governance
+- departmental storage allocation
+- operational accountability
+
+---
+
+## Monitor Quota Consumption Regularly
+
+Enterprise monitoring should validate:
+
+- quota utilization trends
+- filesystem growth
+- users nearing limits
+- quota enforcement events
+
+---
+
+# Operational Notes
+
+- `edquota` provides interactive quota management
+- soft limits allow temporary overages
+- hard limits enforce strict restrictions
+- quota replication simplifies administration
+- enterprise environments require regular quota audits
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- user quotas are configured
+- group quotas are operational
+- grace periods are validated
+- quota replication is understood
+- enterprise quota administration practices are applied
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/05-quotas-edquota-examples.png)
