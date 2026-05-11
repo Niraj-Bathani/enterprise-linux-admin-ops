@@ -1,46 +1,469 @@
-# RAID Recovery
+# RAID Recovery Procedures
 
-## Objective
+## Overview
 
-In this lab you will practice raid recovery on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates enterprise Linux software RAID recovery procedures using `mdadm` on RHEL 9 systems.
 
-## Prerequisites
+The workflow simulates production storage incident response operations involving degraded RAID arrays, failed disks, array rebuilding, and filesystem validation.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `cat /proc/mdstat` and record the output in your lab notes.
-2. Run `mdadm --detail /dev/md0` and record the output in your lab notes.
-3. Run `mdadm --fail /dev/md0 /dev/sdb1` and record the output in your lab notes.
-4. Run `mdadm --remove /dev/md0 /dev/sdb1` and record the output in your lab notes.
-5. Run `mdadm --add /dev/md0 /dev/sdd1` and record the output in your lab notes.
+This exercise covers:
 
-Example command sequence:
+- RAID health validation
+- degraded array detection
+- failed disk recovery
+- RAID rebuild operations
+- filesystem validation
+- persistent RAID configuration
+- enterprise recovery best practices
+
+---
+
+# Environment Information
+
+| Item | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel9-storage01.prod.lab |
+| RAID Type | RAID1 |
+| RAID Device | /dev/md0 |
+| Filesystem | XFS |
+| RAID Utility | mdadm |
+| SELinux | Enforcing |
+
+---
+
+# RAID Layout
+
+| Device | Purpose |
+|---|---|
+| /dev/sdb1 | RAID Member Disk |
+| /dev/sdc1 | RAID Member Disk |
+| /dev/md0 | RAID Array |
+| /raid-data | Mount Point |
+
+---
+
+# Initial RAID Validation
+
+## Verify RAID Status
 
 ```bash
 cat /proc/mdstat
-mdadm --detail /dev/md0
-mdadm --fail /dev/md0 /dev/sdb1
-mdadm --remove /dev/md0 /dev/sdb1
-mdadm --add /dev/md0 /dev/sdd1
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+md0 : active raid1 sdb1[0] sdc1[1]
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+## Verify RAID Details
 
-## Cleanup
+```bash
+mdadm --detail /dev/md0
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+State : clean
+```
 
-Treat RAID Recovery as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+## Verify Mounted Filesystem
+
+```bash
+df -hT | grep raid-data
+```
+
+Expected output:
+
+```text
+/dev/md0 xfs
+```
+
+---
+
+# Simulate RAID Disk Failure
+
+## Mark Disk as Failed
+
+```bash
+mdadm /dev/md0 --fail /dev/sdc1
+```
+
+Expected output:
+
+```text
+set /dev/sdc1 faulty in /dev/md0
+```
+
+---
+
+## Remove Failed Disk
+
+```bash
+mdadm /dev/md0 --remove /dev/sdc1
+```
+
+Expected output:
+
+```text
+hot removed /dev/sdc1
+```
+
+---
+
+# Verify Degraded RAID Status
+
+## Validate RAID Health
+
+```bash
+cat /proc/mdstat
+```
+
+Expected output:
+
+```text
+[U_]
+```
+
+The RAID array is operating in degraded mode.
+
+---
+
+## Verify RAID Details
+
+```bash
+mdadm --detail /dev/md0
+```
+
+Expected output:
+
+```text
+State : clean, degraded
+```
+
+---
+
+# Filesystem Validation During Failure
+
+## Verify Mounted Filesystem
+
+```bash
+mount | grep md0
+```
+
+Filesystem should remain operational during RAID1 degradation.
+
+---
+
+## Verify Read/Write Access
+
+```bash
+touch /raid-data/raid-recovery-test.txt
+```
+
+---
+
+## Validate File Creation
+
+```bash
+ls -l /raid-data
+```
+
+Expected output:
+
+```text
+raid-recovery-test.txt
+```
+
+---
+
+# Replacement Disk Preparation
+
+## Verify Replacement Disk
+
+```bash
+lsblk
+```
+
+Expected output:
+
+```text
+sdc
+```
+
+---
+
+## Create RAID Partition
+
+```bash
+fdisk /dev/sdc
+```
+
+Partition requirements:
+
+- create primary partition
+- allocate full disk size
+- set partition type to `fd` (Linux RAID autodetect)
+
+---
+
+## Verify Partition Layout
+
+```bash
+lsblk
+```
+
+Expected output:
+
+```text
+sdc1
+```
+
+---
+
+# Rebuild RAID Array
+
+## Add Replacement Disk
+
+```bash
+mdadm /dev/md0 --add /dev/sdc1
+```
+
+Expected output:
+
+```text
+added /dev/sdc1
+```
+
+---
+
+## Monitor RAID Rebuild
+
+```bash
+watch cat /proc/mdstat
+```
+
+Expected output:
+
+```text
+recovery = 45.2%
+```
+
+---
+
+## Verify RAID Synchronization
+
+```bash
+cat /proc/mdstat
+```
+
+Expected output:
+
+```text
+[UU]
+```
+
+RAID rebuild completed successfully.
+
+---
+
+# Post-Recovery Validation
+
+## Verify RAID Details
+
+```bash
+mdadm --detail /dev/md0
+```
+
+Expected output:
+
+```text
+State : clean
+```
+
+---
+
+## Verify Mounted Filesystem
+
+```bash
+df -hT | grep raid-data
+```
+
+Expected output:
+
+```text
+/dev/md0 xfs
+```
+
+---
+
+## Verify Filesystem Integrity
+
+```bash
+xfs_repair -n /dev/md0
+```
+
+Expected output:
+
+```text
+No modify flag set
+```
+
+---
+
+# Persistent RAID Configuration
+
+## Verify mdadm Configuration
+
+```bash
+cat /etc/mdadm.conf
+```
+
+Expected output:
+
+```text
+ARRAY /dev/md0
+```
+
+---
+
+## Update RAID Metadata
+
+```bash
+mdadm --detail --scan >> /etc/mdadm.conf
+```
+
+---
+
+# RAID Monitoring Validation
+
+## Verify mdmonitor Service
+
+```bash
+systemctl status mdmonitor
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+---
+
+# Disk Health Validation
+
+## Verify SMART Status
+
+```bash
+smartctl -H /dev/sdb
+smartctl -H /dev/sdc
+```
+
+Expected output:
+
+```text
+PASSED
+```
+
+---
+
+# Performance Validation
+
+## Verify RAID I/O Statistics
+
+```bash
+iostat -xz 1 1
+```
+
+---
+
+# SELinux Validation
+
+## Verify SELinux Status
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+SELinux remains enabled throughout all recovery operations.
+
+---
+
+# Operational Recommendations
+
+## Monitor RAID Health Continuously
+
+Enterprise monitoring should validate:
+
+- degraded RAID conditions
+- rebuild progress
+- disk SMART health
+- filesystem accessibility
+- RAID synchronization status
+
+---
+
+## Replace Failed Disks Quickly
+
+Operating degraded RAID arrays increases risk of:
+
+- complete storage failure
+- data unavailability
+- filesystem corruption
+- operational downtime
+
+---
+
+## Validate Recovery Procedures Regularly
+
+Routine RAID recovery testing improves:
+
+- operational readiness
+- incident response speed
+- infrastructure resilience
+- storage recovery reliability
+
+---
+
+# Operational Notes
+
+- RAID1 provides redundancy during disk failures
+- degraded arrays remain operational temporarily
+- RAID rebuild operations consume disk I/O resources
+- SMART monitoring improves failure detection
+- filesystem validation is required after rebuild completion
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- RAID degradation handling is validated
+- failed disk replacement is operational
+- RAID rebuild procedures are understood
+- filesystem recovery validation is completed
+- enterprise storage recovery practices are applied
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/04-raid-recovery.png)
