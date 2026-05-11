@@ -1,46 +1,464 @@
-# Raid0 Striping
+# RAID0 Striping Configuration
 
-## Objective
+## Overview
 
-In this lab you will practice raid0 striping on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates enterprise Linux RAID0 striping configuration using `mdadm` on RHEL 9 systems.
 
-## Prerequisites
+The workflow simulates high-performance storage provisioning scenarios commonly used for temporary data processing, high-throughput workloads, and non-critical performance-focused storage environments.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `cat /proc/mdstat` and record the output in your lab notes.
-2. Run `mdadm --detail /dev/md0` and record the output in your lab notes.
-3. Run `mdadm --fail /dev/md0 /dev/sdb1` and record the output in your lab notes.
-4. Run `mdadm --remove /dev/md0 /dev/sdb1` and record the output in your lab notes.
-5. Run `mdadm --add /dev/md0 /dev/sdd1` and record the output in your lab notes.
+This exercise covers:
 
-Example command sequence:
+- RAID0 array creation
+- disk striping concepts
+- filesystem creation
+- persistent RAID configuration
+- storage validation procedures
+- performance verification
+- enterprise RAID operational practices
+
+---
+
+# Environment Information
+
+| Item | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel9-storage01.prod.lab |
+| RAID Type | RAID0 |
+| RAID Device | /dev/md0 |
+| RAID Utility | mdadm |
+| Filesystem | XFS |
+| SELinux | Enforcing |
+
+---
+
+# RAID0 Overview
+
+RAID0 provides:
+
+- high storage performance
+- data striping across disks
+- improved read/write throughput
+
+RAID0 does NOT provide:
+
+- redundancy
+- fault tolerance
+- data recovery protection
+
+Failure of a single disk causes total array failure.
+
+---
+
+# Planned RAID Layout
+
+| Device | Purpose |
+|---|---|
+| /dev/sdb1 | RAID Member |
+| /dev/sdc1 | RAID Member |
+| /dev/md0 | RAID0 Array |
+| /raid0-data | Mount Point |
+
+---
+
+# Initial Disk Validation
+
+## Verify Available Storage Devices
+
+```bash
+lsblk
+```
+
+Expected output:
+
+```text
+sdb      8:16   0   20G  0 disk
+sdc      8:32   0   20G  0 disk
+```
+
+---
+
+# Partition Preparation
+
+## Create RAID Partitions
+
+Configure both disks:
+
+```bash
+fdisk /dev/sdb
+fdisk /dev/sdc
+```
+
+Partition requirements:
+
+- create primary partition
+- allocate full disk size
+- set partition type to `fd` (Linux RAID)
+
+---
+
+## Verify Partition Layout
+
+```bash
+lsblk
+```
+
+Expected output:
+
+```text
+sdb1
+sdc1
+```
+
+---
+
+# RAID0 Array Creation
+
+## Create RAID0 Array
+
+```bash
+mdadm --create --verbose /dev/md0 \
+--level=0 \
+--raid-devices=2 \
+/dev/sdb1 /dev/sdc1
+```
+
+Expected output:
+
+```text
+mdadm: array /dev/md0 started.
+```
+
+---
+
+## Verify RAID Status
 
 ```bash
 cat /proc/mdstat
-mdadm --detail /dev/md0
-mdadm --fail /dev/md0 /dev/sdb1
-mdadm --remove /dev/md0 /dev/sdb1
-mdadm --add /dev/md0 /dev/sdd1
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+md0 : active raid0 sdb1[0] sdc1[1]
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+## Verify RAID Details
 
-## Cleanup
+```bash
+mdadm --detail /dev/md0
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+Raid Level : raid0
+```
 
-Treat Raid0 Striping as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+# Filesystem Creation
+
+## Create XFS Filesystem
+
+```bash
+mkfs.xfs /dev/md0
+```
+
+Expected output:
+
+```text
+meta-data=/dev/md0
+```
+
+---
+
+## Verify Filesystem
+
+```bash
+blkid /dev/md0
+```
+
+Expected output:
+
+```text
+TYPE="xfs"
+```
+
+---
+
+# Mount Configuration
+
+## Create Mount Point
+
+```bash
+mkdir -p /raid0-data
+```
+
+---
+
+## Mount RAID0 Filesystem
+
+```bash
+mount /dev/md0 /raid0-data
+```
+
+---
+
+## Verify Mounted Filesystem
+
+```bash
+df -hT | grep raid0-data
+```
+
+Expected output:
+
+```text
+/dev/md0 xfs
+```
+
+---
+
+# Persistent RAID Configuration
+
+## Save RAID Metadata
+
+```bash
+mdadm --detail --scan >> /etc/mdadm.conf
+```
+
+---
+
+## Verify mdadm Configuration
+
+```bash
+cat /etc/mdadm.conf
+```
+
+Expected output:
+
+```text
+ARRAY /dev/md0
+```
+
+---
+
+# Persistent Filesystem Mount
+
+## Retrieve Filesystem UUID
+
+```bash
+blkid /dev/md0
+```
+
+---
+
+## Configure /etc/fstab
+
+```bash
+vi /etc/fstab
+```
+
+Add:
+
+```text
+UUID=<uuid> /raid0-data xfs defaults 0 0
+```
+
+---
+
+## Validate fstab Configuration
+
+```bash
+mount -a
+```
+
+No output indicates successful validation.
+
+---
+
+# Filesystem Validation
+
+## Verify Read/Write Operations
+
+```bash
+touch /raid0-data/raid0-test.txt
+```
+
+---
+
+## Verify File Creation
+
+```bash
+ls -l /raid0-data
+```
+
+Expected output:
+
+```text
+raid0-test.txt
+```
+
+---
+
+# RAID Performance Validation
+
+## Verify RAID Statistics
+
+```bash
+cat /proc/mdstat
+```
+
+---
+
+## Verify Disk Performance
+
+```bash
+iostat -xz 1 1
+```
+
+Expected output:
+
+```text
+Device utilization statistics
+```
+
+---
+
+# RAID Monitoring Validation
+
+## Verify mdmonitor Service
+
+```bash
+systemctl status mdmonitor
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+---
+
+# Disk Health Validation
+
+## Verify SMART Status
+
+```bash
+smartctl -H /dev/sdb
+smartctl -H /dev/sdc
+```
+
+Expected output:
+
+```text
+PASSED
+```
+
+---
+
+# Failure Simulation Warning
+
+RAID0 has no redundancy.
+
+If a single disk fails:
+
+- all array data becomes inaccessible
+- filesystem corruption occurs
+- recovery is generally impossible
+
+Example degraded scenario:
+
+```text
+Array failure expected after disk loss
+```
+
+---
+
+# SELinux Validation
+
+## Verify SELinux Status
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+SELinux remains enabled throughout all RAID operations.
+
+---
+
+# Operational Recommendations
+
+## Use RAID0 Only for Non-Critical Workloads
+
+Appropriate workloads:
+
+- temporary data processing
+- cache storage
+- scratch environments
+- performance testing
+
+Avoid RAID0 for:
+
+- databases
+- production application storage
+- critical infrastructure
+- backup repositories
+
+---
+
+## Monitor Disk Health Aggressively
+
+RAID0 failure risk increases with:
+
+- multiple disks
+- aging storage devices
+- high write workloads
+
+Enterprise monitoring should validate:
+
+- SMART health
+- disk latency
+- I/O errors
+- RAID device availability
+
+---
+
+# Operational Notes
+
+- RAID0 improves storage throughput
+- RAID0 provides zero fault tolerance
+- filesystem validation is required after creation
+- mdadm metadata must be persisted
+- enterprise workloads generally prefer redundant RAID levels
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- RAID0 array is operational
+- striped storage performance is validated
+- persistent RAID configuration is completed
+- filesystem validation procedures are verified
+- enterprise RAID operational practices are reviewed
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/04-raid0-striping.png)
