@@ -1,46 +1,374 @@
-# LVM Extend Reduce
+# LVM Extension and Reduction
 
-## Objective
+## Overview
 
-In this lab you will practice lvm extend reduce on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates enterprise Linux Logical Volume Manager (LVM) extension and reduction procedures on RHEL 9 systems.
 
-## Prerequisites
+The workflow simulates production storage scaling operations used for application growth, database expansion, capacity management, and filesystem maintenance activities.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `pvcreate /dev/sdb1` and record the output in your lab notes.
-2. Run `vgcreate vg_data /dev/sdb1` and record the output in your lab notes.
-3. Run `lvcreate -n lv_apps -L 2G vg_data` and record the output in your lab notes.
-4. Run `mkfs.xfs /dev/vg_data/lv_apps` and record the output in your lab notes.
-5. Run `lvextend -r -L +1G /dev/vg_data/lv_apps` and record the output in your lab notes.
+This exercise covers:
 
-Example command sequence:
+- logical volume extension
+- filesystem growth
+- logical volume reduction
+- filesystem integrity validation
+- online storage expansion
+- enterprise LVM operational practices
+
+---
+
+# Environment Information
+
+| Item | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Hostname | rhel9-storage01.prod.lab |
+| Volume Group | vg_data |
+| Logical Volume | lv_appdata |
+| Filesystem | XFS / EXT4 |
+| SELinux | Enforcing |
+
+---
+
+# Initial LVM Validation
+
+## Verify Physical Volumes
 
 ```bash
-pvcreate /dev/sdb1
-vgcreate vg_data /dev/sdb1
-lvcreate -n lv_apps -L 2G vg_data
-mkfs.xfs /dev/vg_data/lv_apps
-lvextend -r -L +1G /dev/vg_data/lv_apps
+pvs
 ```
 
-## Expected Output
+---
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+## Verify Volume Groups
 
-## Validation
+```bash
+vgs
+```
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+Expected output:
 
-## Cleanup
+```text
+VG       #PV #LV #SN Attr   VSize   VFree
+vg_data    1   1   0 wz--n- <20.00g <12.00g
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+---
 
-## Operator Notes
+## Verify Logical Volumes
 
-Treat LVM Extend Reduce as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+```bash
+lvs
+```
+
+Expected output:
+
+```text
+LV          VG       Attr       LSize
+lv_appdata  vg_data  -wi-a----- 8.00g
+```
+
+---
+
+# Filesystem Validation
+
+## Verify Mounted Filesystem
+
+```bash
+df -hT | grep app-data
+```
+
+Expected output:
+
+```text
+/dev/mapper/vg_data-lv_appdata xfs 8.0G
+```
+
+---
+
+# Logical Volume Extension
+
+## Extend Logical Volume
+
+Increase logical volume by 4 GB:
+
+```bash
+lvextend -L +4G /dev/vg_data/lv_appdata
+```
+
+Expected output:
+
+```text
+Size of logical volume vg_data/lv_appdata changed
+```
+
+---
+
+## Verify Extended Logical Volume
+
+```bash
+lvs
+```
+
+Expected output:
+
+```text
+LV          VG       Attr       LSize
+lv_appdata  vg_data  -wi-a----- 12.00g
+```
+
+---
+
+# Extend Filesystem
+
+## Extend XFS Filesystem
+
+```bash
+xfs_growfs /app-data
+```
+
+Expected output:
+
+```text
+data blocks changed
+```
+
+---
+
+## Verify Filesystem Expansion
+
+```bash
+df -hT | grep app-data
+```
+
+Expected output:
+
+```text
+/dev/mapper/vg_data-lv_appdata xfs 12G
+```
+
+---
+
+# Read/Write Validation
+
+## Create Validation File
+
+```bash
+touch /app-data/lvm-extend-test.txt
+```
+
+---
+
+## Verify File Creation
+
+```bash
+ls -l /app-data
+```
+
+Expected output:
+
+```text
+lvm-extend-test.txt
+```
+
+---
+
+# Logical Volume Reduction
+
+## Important Operational Warning
+
+XFS filesystems cannot be reduced safely.
+
+Logical volume reduction should only be performed with EXT4 filesystems after unmounting the filesystem.
+
+---
+
+# EXT4 Reduction Workflow Example
+
+## Unmount Filesystem
+
+```bash
+umount /data-ext4
+```
+
+---
+
+## Filesystem Integrity Check
+
+```bash
+e2fsck -f /dev/vg_data/lv_ext4
+```
+
+Expected output:
+
+```text
+clean
+```
+
+---
+
+## Reduce Filesystem
+
+```bash
+resize2fs /dev/vg_data/lv_ext4 4G
+```
+
+---
+
+## Reduce Logical Volume
+
+```bash
+lvreduce -L 4G /dev/vg_data/lv_ext4
+```
+
+Expected output:
+
+```text
+Logical volume successfully resized
+```
+
+---
+
+## Remount Filesystem
+
+```bash
+mount /dev/vg_data/lv_ext4 /data-ext4
+```
+
+---
+
+## Verify Reduced Filesystem
+
+```bash
+df -hT | grep data-ext4
+```
+
+Expected output:
+
+```text
+/dev/mapper/vg_data-lv_ext4 ext4 4.0G
+```
+
+---
+
+# LVM Validation
+
+## Verify Volume Group Capacity
+
+```bash
+vgs
+```
+
+---
+
+## Verify Logical Volume Status
+
+```bash
+lvs
+```
+
+---
+
+## Verify Mount Status
+
+```bash
+mount | grep vg_data
+```
+
+---
+
+# Performance Validation
+
+## Verify Disk Statistics
+
+```bash
+iostat -xz 1 1
+```
+
+---
+
+# SELinux Validation
+
+## Verify SELinux Status
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+SELinux remains enabled throughout all LVM operations.
+
+---
+
+# Operational Recommendations
+
+## Prefer Online Expansion
+
+XFS allows online expansion without unmounting:
+
+```text
+xfs_growfs
+```
+
+This reduces operational downtime during storage growth activities.
+
+---
+
+## Avoid Unnecessary Reduction
+
+Filesystem reduction introduces operational risk.
+
+Best practice:
+
+- allocate sufficient storage initially
+- prefer expansion workflows
+- validate backups before reduction
+
+---
+
+## Validate Filesystem Integrity
+
+Before reduction:
+
+```bash
+e2fsck -f
+```
+
+Filesystem integrity checks are mandatory for EXT4 reduction operations.
+
+---
+
+# Operational Notes
+
+- XFS supports online expansion only
+- EXT4 supports controlled reduction
+- logical volume extension is low risk
+- filesystem reduction requires maintenance planning
+- enterprise storage changes require validation after modification
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- logical volume extension is operational
+- filesystem expansion is validated
+- EXT4 reduction workflow is understood
+- LVM operational best practices are reviewed
+- enterprise storage scaling procedures are applied
+
+---
+
+# Screenshot Reference
+
+![Screenshot](../screenshots/03-lvm-extend-reduce.png)
