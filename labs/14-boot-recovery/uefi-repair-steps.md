@@ -1,46 +1,721 @@
 # UEFI Repair Steps
 
-## Objective
+## Overview
 
-In this lab you will practice uefi repair steps on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates enterprise Linux UEFI bootloader repair procedures on RHEL 9.6 systems. The exercise covers EFI partition validation, GRUB EFI component recovery, bootloader reinstallation, and operational verification after UEFI-related failures.
 
-## Prerequisites
+The workflow is commonly used during enterprise recovery operations involving damaged EFI entries, corrupted bootloader files, or failed UEFI boot sequences.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `efibootmgr -v` and record the output in your lab notes.
-2. Run `grub2-mkconfig -o /boot/grub2/grub.cfg` and record the output in your lab notes.
-3. Run `dracut -f` and record the output in your lab notes.
-4. Run `lsinitrd /boot/initramfs-$(uname -r).img | head` and record the output in your lab notes.
-5. Run `journalctl -b -1 -p warning` and record the output in your lab notes.
+In this lab you will:
 
-Example command sequence:
+- Identify EFI partition layout
+- Verify UEFI boot environment
+- Access rescue mode
+- Mount EFI partitions
+- Reinstall GRUB EFI components
+- Rebuild GRUB configuration
+- Validate UEFI boot entries
+- Verify successful boot recovery
+
+---
+
+# Environment Information
+
+| Hostname | Role | IP Address |
+|---|---|---|
+| rhel9-recovery01.prod.lab | Recovery Target Server | 192.168.20.10 |
+
+Environment details:
+
+- Operating System: RHEL 9.6
+- SELinux: Enforcing
+- Boot Mode: UEFI
+- Filesystem: XFS
+- Bootloader: GRUB2 EFI
+
+---
+
+# Initial Validation
+
+Verify hostname configuration.
+
+```bash
+hostnamectl
+```
+
+Expected output:
+
+```text
+ Static hostname: rhel9-recovery01.prod.lab
+```
+
+---
+
+Verify EFI directory availability.
+
+```bash
+ls /sys/firmware/efi
+```
+
+Expected output:
+
+```text
+efivars
+```
+
+---
+
+Verify EFI partition mount.
+
+```bash
+mount | grep efi
+```
+
+Expected output:
+
+```text
+/boot/efi
+```
+
+---
+
+Verify current EFI files.
+
+```bash
+ls -l /boot/efi/EFI/redhat
+```
+
+Expected output:
+
+```text
+grubx64.efi
+shimx64.efi
+```
+
+---
+
+Verify SELinux mode.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+# Verify EFI Partition Layout
+
+Display block devices.
+
+```bash
+lsblk
+```
+
+Expected output:
+
+```text
+sda
+├─sda1   /boot/efi
+├─sda2   /boot
+```
+
+---
+
+Verify filesystem UUIDs.
+
+```bash
+blkid
+```
+
+Expected output:
+
+```text
+TYPE="vfat"
+```
+
+---
+
+Verify mounted boot partitions.
+
+```bash
+df -h | grep boot
+```
+
+Expected output:
+
+```text
+/boot
+/boot/efi
+```
+
+---
+
+# Backup EFI Files
+
+Create backup directory.
+
+```bash
+sudo mkdir -p /root/efi-backup
+```
+
+---
+
+Backup EFI files.
+
+```bash
+sudo cp -r /boot/efi/EFI/redhat /root/efi-backup/
+```
+
+---
+
+Verify backup files.
+
+```bash
+ls -R /root/efi-backup
+```
+
+Expected output:
+
+```text
+grubx64.efi
+shimx64.efi
+```
+
+---
+
+# Simulate EFI Bootloader Failure
+
+Rename EFI directory.
+
+```bash
+sudo mv /boot/efi/EFI/redhat /boot/efi/EFI/redhat.corrupted
+```
+
+---
+
+Verify EFI corruption simulation.
+
+```bash
+ls /boot/efi/EFI
+```
+
+Expected output:
+
+```text
+redhat.corrupted
+```
+
+---
+
+# Reboot System
+
+Reboot the server.
+
+```bash
+sudo reboot
+```
+
+---
+
+Expected behavior:
+
+```text
+UEFI boot failure
+```
+
+or
+
+```text
+No bootable device
+```
+
+---
+
+# Boot into Rescue Environment
+
+Boot using RHEL installation media or rescue ISO.
+
+Select:
+
+```text
+Troubleshooting
+```
+
+---
+
+Then select:
+
+```text
+Rescue a Red Hat Enterprise Linux system
+```
+
+---
+
+Select:
+
+```text
+1) Continue
+```
+
+---
+
+Verify mounted system.
+
+```bash
+mount | grep sysimage
+```
+
+Expected output:
+
+```text
+/sysroot
+```
+
+---
+
+# Enter Installed System
+
+Enter the installed operating system environment.
+
+```bash
+chroot /mnt/sysimage
+```
+
+Expected prompt:
+
+```text
+sh-5.1#
+```
+
+---
+
+Verify EFI mount.
+
+```bash
+mount | grep efi
+```
+
+Expected output:
+
+```text
+/boot/efi
+```
+
+---
+
+# Restore EFI Directory
+
+Restore the original EFI directory.
+
+```bash
+cp -r /root/efi-backup/redhat /boot/efi/EFI/
+```
+
+---
+
+Verify restored EFI files.
+
+```bash
+ls -l /boot/efi/EFI/redhat
+```
+
+Expected output:
+
+```text
+grubx64.efi
+shimx64.efi
+```
+
+---
+
+# Reinstall GRUB EFI Components
+
+Install GRUB EFI packages.
+
+```bash
+dnf reinstall grub2-efi-x64 shim-x64 -y
+```
+
+---
+
+Reinstall GRUB bootloader.
+
+```bash
+grub2-install --target=x86_64-efi --efi-directory=/boot/efi
+```
+
+Expected output:
+
+```text
+Installation finished. No error reported.
+```
+
+---
+
+# Rebuild GRUB Configuration
+
+Generate a new GRUB configuration file.
+
+```bash
+grub2-mkconfig -o /boot/grub2/grub.cfg
+```
+
+Expected output:
+
+```text
+Found linux image
+```
+
+---
+
+Verify boot menu entries.
+
+```bash
+grep menuentry /boot/grub2/grub.cfg
+```
+
+Expected output:
+
+```text
+menuentry 'Red Hat Enterprise Linux'
+```
+
+---
+
+# Verify EFI Boot Entries
+
+Display EFI boot entries.
 
 ```bash
 efibootmgr -v
-grub2-mkconfig -o /boot/grub2/grub.cfg
-dracut -f
-lsinitrd /boot/initramfs-$(uname -r).img | head
-journalctl -b -1 -p warning
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+Boot0001* Red Hat Enterprise Linux
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+Verify EFI partition contents.
 
-## Cleanup
+```bash
+tree /boot/efi/EFI
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+EFI
+└── redhat
+```
 
-Treat UEFI Repair Steps as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+# Exit Recovery Environment
+
+Exit the chroot shell.
+
+```bash
+exit
+```
+
+---
+
+Reboot the server.
+
+```bash
+reboot
+```
+
+---
+
+# Validate Normal Boot
+
+Verify successful login.
+
+```bash
+whoami
+```
+
+Expected output:
+
+```text
+root
+```
+
+---
+
+Verify system operational state.
+
+```bash
+systemctl is-system-running
+```
+
+Expected output:
+
+```text
+running
+```
+
+---
+
+Verify EFI mount after recovery.
+
+```bash
+mount | grep efi
+```
+
+Expected output:
+
+```text
+/boot/efi
+```
+
+---
+
+# Monitoring Validation
+
+Review boot logs.
+
+```bash
+journalctl -b
+```
+
+---
+
+Monitor EFI-related logs.
+
+```bash
+journalctl | grep EFI
+```
+
+---
+
+Verify mounted partitions.
+
+```bash
+lsblk
+```
+
+Expected output:
+
+```text
+sda1 /boot/efi
+```
+
+---
+
+# Logging Validation
+
+Review GRUB rebuild logs.
+
+```bash
+journalctl | grep grub2
+```
+
+---
+
+Review EFI boot manager logs.
+
+```bash
+journalctl | grep efiboot
+```
+
+---
+
+Review rescue environment logs.
+
+```bash
+journalctl -xb
+```
+
+---
+
+# Troubleshooting
+
+Verify EFI partition mount.
+
+```bash
+mount | grep efi
+```
+
+---
+
+If EFI directory is missing:
+
+```bash
+mkdir -p /boot/efi/EFI/redhat
+```
+
+---
+
+If boot entries are missing:
+
+```bash
+efibootmgr --create
+```
+
+---
+
+Verify EFI files.
+
+```bash
+ls -R /boot/efi/EFI
+```
+
+---
+
+Verify GRUB configuration syntax.
+
+```bash
+grub2-script-check /boot/grub2/grub.cfg
+```
+
+---
+
+Verify SELinux state.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+# Persistence Validation
+
+Reboot the server again.
+
+```bash
+sudo reboot
+```
+
+---
+
+Verify successful boot after reboot.
+
+```bash
+systemctl is-system-running
+```
+
+Expected output:
+
+```text
+running
+```
+
+---
+
+Verify EFI partition persistence.
+
+```bash
+mount | grep efi
+```
+
+Expected output:
+
+```text
+/boot/efi
+```
+
+---
+
+# Security Validation
+
+Verify SELinux remains enforcing.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+Verify EFI package integrity.
+
+```bash
+rpm -V grub2-efi-x64
+```
+
+---
+
+Verify bootloader entries.
+
+```bash
+efibootmgr -v
+```
+
+Expected output:
+
+```text
+Boot0001* Red Hat Enterprise Linux
+```
+
+---
+
+# Operational Recommendations
+
+- Maintain EFI partition backups
+- Restrict unauthorized EFI modifications
+- Protect UEFI firmware settings
+- Maintain updated rescue media
+- Validate EFI boot entries regularly
+- Monitor filesystem integrity
+- Test recovery workflows periodically
+- Document all recovery operations
+
+---
+
+# Operational Notes
+
+UEFI boot failures commonly involve corrupted EFI files, invalid boot entries, or damaged GRUB EFI components. Recovery typically involves rescue-mode access, EFI restoration, and bootloader rebuild operations.
+
+During recovery operations validate:
+
+- EFI partition accessibility
+- GRUB EFI file integrity
+- Boot entry availability
+- Filesystem mount state
+- Successful GRUB installation
+- SELinux operational state
+- Post-recovery boot functionality
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- EFI corruption is successfully simulated
+- Rescue environment access functions correctly
+- EFI files are restored successfully
+- GRUB EFI components are rebuilt
+- UEFI boot entries are operational
+- Normal system boot is restored
+- SELinux remains enforcing
+- Recovery persistence is verified
+
+---
+
+![Screenshot](../screenshots/uefi-repair-steps.png)
