@@ -1,46 +1,697 @@
 # Historical sar
 
-## Objective
+## Overview
 
-In this lab you will practice historical sar on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates historical system performance analysis using `sar` on RHEL 9.6 systems. The exercise covers collecting historical CPU, memory, disk, and network statistics, reviewing archived performance reports, and validating enterprise Linux performance troubleshooting workflows.
 
-## Prerequisites
+The workflow follows realistic enterprise Linux operational practices using SELinux enforcing and firewalld enabled.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `uptime` and record the output in your lab notes.
-2. Run `mpstat 1 5` and record the output in your lab notes.
-3. Run `free -h` and record the output in your lab notes.
-4. Run `iostat -xz 1 5` and record the output in your lab notes.
-5. Run `sar -n DEV 1 5` and record the output in your lab notes.
+In this lab you will:
 
-Example command sequence:
+- Configure historical performance collection
+- Analyze CPU performance history
+- Review memory utilization trends
+- Monitor disk activity history
+- Analyze network statistics
+- Validate sysstat data collection
+- Troubleshoot performance issues
+- Verify operational reporting workflows
+
+---
+
+# Environment Information
+
+| Hostname | Role | IP Address |
+|---|---|---|
+| rhel9-perf01.prod.lab | Performance Monitoring Server | 192.168.50.10 |
+
+Environment details:
+
+- Operating System: RHEL 9.6
+- SELinux: Enforcing
+- firewalld: Enabled
+- Monitoring Utility: sar
+- Performance Package: sysstat
+
+---
+
+# Initial Validation
+
+Verify hostname configuration.
 
 ```bash
-uptime
-mpstat 1 5
-free -h
-iostat -xz 1 5
-sar -n DEV 1 5
+hostnamectl
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+ Static hostname: rhel9-perf01.prod.lab
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+Verify SELinux mode.
 
-## Cleanup
+```bash
+getenforce
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+Enforcing
+```
 
-Treat Historical sar as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+Verify sysstat package installation.
+
+```bash
+rpm -q sysstat
+```
+
+Expected output:
+
+```text
+sysstat
+```
+
+---
+
+Verify sysstat service state.
+
+```bash
+systemctl status sysstat
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+---
+
+# Verify Historical Data Collection
+
+Verify sar data directory.
+
+```bash
+ls -lh /var/log/sa/
+```
+
+Expected output:
+
+```text
+sa12
+sar12
+```
+
+---
+
+Verify collection timers.
+
+```bash
+systemctl list-timers | grep sysstat
+```
+
+Expected output:
+
+```text
+sysstat-collect.timer
+```
+
+---
+
+Verify sysstat enablement.
+
+```bash
+systemctl is-enabled sysstat
+```
+
+Expected output:
+
+```text
+enabled
+```
+
+---
+
+# Analyze Historical CPU Usage
+
+View CPU usage report.
+
+```bash
+sar -u
+```
+
+Expected output:
+
+```text
+Average
+```
+
+---
+
+View CPU usage for specific intervals.
+
+```bash
+sar -u 2 5
+```
+
+Expected output:
+
+```text
+%user
+```
+
+---
+
+View per-CPU historical activity.
+
+```bash
+sar -P ALL
+```
+
+Expected output:
+
+```text
+CPU
+```
+
+---
+
+View load averages.
+
+```bash
+sar -q
+```
+
+Expected output:
+
+```text
+runq-sz
+```
+
+---
+
+# Analyze Historical Memory Usage
+
+View memory utilization.
+
+```bash
+sar -r
+```
+
+Expected output:
+
+```text
+kbmemfree
+```
+
+---
+
+View swap activity.
+
+```bash
+sar -S
+```
+
+Expected output:
+
+```text
+kbswpused
+```
+
+---
+
+View paging statistics.
+
+```bash
+sar -B
+```
+
+Expected output:
+
+```text
+pgpgin/s
+```
+
+---
+
+# Analyze Historical Disk Activity
+
+View disk activity report.
+
+```bash
+sar -d
+```
+
+Expected output:
+
+```text
+DEV
+```
+
+---
+
+View block device statistics.
+
+```bash
+sar -b
+```
+
+Expected output:
+
+```text
+tps
+```
+
+---
+
+View filesystem utilization.
+
+```bash
+df -h
+```
+
+Expected output:
+
+```text
+Use%
+```
+
+---
+
+# Analyze Historical Network Activity
+
+View network interface statistics.
+
+```bash
+sar -n DEV
+```
+
+Expected output:
+
+```text
+IFACE
+```
+
+---
+
+View TCP statistics.
+
+```bash
+sar -n TCP
+```
+
+Expected output:
+
+```text
+active/s
+```
+
+---
+
+View socket statistics.
+
+```bash
+sar -n SOCK
+```
+
+Expected output:
+
+```text
+totsck
+```
+
+---
+
+# Generate Performance Activity
+
+Generate CPU workload.
+
+```bash
+stress --cpu 2 --timeout 120 &
+```
+
+---
+
+Generate disk workload.
+
+```bash
+dd if=/dev/zero of=/tmp/sar-test.img bs=1M count=512 status=progress
+```
+
+Expected output:
+
+```text
+copied
+```
+
+---
+
+Verify workload processes.
+
+```bash
+ps -ef | grep -E 'stress|dd'
+```
+
+Expected output:
+
+```text
+stress
+dd
+```
+
+---
+
+# Monitor Real-Time sar Activity
+
+Monitor CPU activity live.
+
+```bash
+sar -u 2 5
+```
+
+---
+
+Monitor memory activity live.
+
+```bash
+sar -r 2 5
+```
+
+---
+
+Monitor disk activity live.
+
+```bash
+sar -d 2 5
+```
+
+---
+
+Monitor network activity live.
+
+```bash
+sar -n DEV 2 5
+```
+
+---
+
+# Monitoring Validation
+
+Monitor sysstat timers.
+
+```bash
+systemctl list-timers | grep sysstat
+```
+
+---
+
+Monitor sar process activity.
+
+```bash
+ps -ef | grep sadc
+```
+
+Expected output:
+
+```text
+sadc
+```
+
+---
+
+Monitor performance logs.
+
+```bash
+ls -lh /var/log/sa/
+```
+
+---
+
+Monitor active workloads.
+
+```bash
+top
+```
+
+Expected output:
+
+```text
+stress
+```
+
+---
+
+# Logging Validation
+
+Review sysstat logs.
+
+```bash
+journalctl -u sysstat
+```
+
+Expected output:
+
+```text
+Started
+```
+
+---
+
+Review recent system logs.
+
+```bash
+journalctl -n 20
+```
+
+Expected output:
+
+```text
+systemd
+```
+
+---
+
+Review sar collection activity.
+
+```bash
+journalctl | grep sadc
+```
+
+---
+
+# Troubleshooting
+
+Verify sysstat service state.
+
+```bash
+systemctl status sysstat
+```
+
+---
+
+Verify timer activity.
+
+```bash
+systemctl list-timers
+```
+
+---
+
+Restart sysstat service.
+
+```bash
+sudo systemctl restart sysstat
+```
+
+---
+
+Verify sar data generation.
+
+```bash
+ls -lh /var/log/sa/
+```
+
+---
+
+Remove temporary workload file.
+
+```bash
+rm -f /tmp/sar-test.img
+```
+
+---
+
+Terminate stress workload.
+
+```bash
+pkill stress
+```
+
+---
+
+Verify SELinux mode.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+# Persistence Validation
+
+Reboot the server.
+
+```bash
+sudo reboot
+```
+
+---
+
+Verify sysstat service after reboot.
+
+```bash
+systemctl status sysstat
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+---
+
+Verify historical sar data remains available.
+
+```bash
+sar -u
+```
+
+Expected output:
+
+```text
+Average
+```
+
+---
+
+Verify timer persistence.
+
+```bash
+systemctl list-timers | grep sysstat
+```
+
+Expected output:
+
+```text
+sysstat-collect.timer
+```
+
+---
+
+# Security Validation
+
+Verify SELinux remains enforcing.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+Verify sysstat package integrity.
+
+```bash
+rpm -V sysstat
+```
+
+---
+
+Verify sar log permissions.
+
+```bash
+ls -ld /var/log/sa
+```
+
+Expected output:
+
+```text
+drwxr-xr-x
+```
+
+---
+
+# Operational Recommendations
+
+- Retain historical sar reports for trend analysis
+- Monitor abnormal CPU and memory spikes
+- Review disk and network activity regularly
+- Validate sysstat timers continuously
+- Monitor storage utilization trends
+- Archive performance reports when required
+- Document operational performance incidents
+- Use historical reports during troubleshooting
+
+---
+
+# Operational Notes
+
+The sar utility provides historical performance visibility across CPU, memory, disk, and network resources on enterprise Linux systems.
+
+Utility roles:
+
+- CPU utilization analysis
+- Memory trend analysis
+- Disk performance reporting
+- Network activity monitoring
+- Historical troubleshooting workflows
+
+During troubleshooting validate:
+
+- sysstat service state
+- Historical data availability
+- Timer activity
+- Resource utilization trends
+- Performance spikes
+- Workload behavior
+- SELinux operational state
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- Historical sar reporting functions correctly
+- CPU, memory, disk, and network reports are available
+- sysstat collection services operate successfully
+- Historical troubleshooting workflows function properly
+- Performance trend analysis operates correctly
+- sysstat persistence works after reboot
+- SELinux remains enforcing
+
+---
+
+![Screenshot](../screenshots/historical-sar.png)
