@@ -1,46 +1,644 @@
 # Simulate GRUB Corruption
 
-## Objective
+## Overview
 
-In this lab you will practice simulate grub corruption on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates controlled GRUB corruption and recovery operations on a RHEL 9.6 system. The exercise helps administrators understand enterprise Linux bootloader recovery procedures, troubleshooting methods, and operational validation workflows.
 
-## Prerequisites
+The lab intentionally modifies GRUB configuration components and validates recovery using standard enterprise recovery practices.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `efibootmgr -v` and record the output in your lab notes.
-2. Run `grub2-mkconfig -o /boot/grub2/grub.cfg` and record the output in your lab notes.
-3. Run `dracut -f` and record the output in your lab notes.
-4. Run `lsinitrd /boot/initramfs-$(uname -r).img | head` and record the output in your lab notes.
-5. Run `journalctl -b -1 -p warning` and record the output in your lab notes.
+In this lab you will:
 
-Example command sequence:
+- Identify GRUB configuration files
+- Simulate GRUB configuration corruption
+- Observe boot failure behavior
+- Access rescue and recovery environments
+- Restore GRUB configuration
+- Rebuild GRUB configuration files
+- Validate successful boot recovery
+- Verify post-recovery system functionality
+
+---
+
+# Environment Information
+
+| Hostname | Role | IP Address |
+|---|---|---|
+| rhel9-recovery01.prod.lab | Recovery Target Server | 192.168.20.10 |
+
+Environment details:
+
+- Operating System: RHEL 9.6
+- SELinux: Enforcing
+- Boot Mode: UEFI
+- Filesystem: XFS
+- Bootloader: GRUB2
+
+---
+
+# Initial Validation
+
+Verify hostname configuration.
 
 ```bash
-efibootmgr -v
-grub2-mkconfig -o /boot/grub2/grub.cfg
-dracut -f
-lsinitrd /boot/initramfs-$(uname -r).img | head
-journalctl -b -1 -p warning
+hostnamectl
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+ Static hostname: rhel9-recovery01.prod.lab
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+Verify current bootloader packages.
 
-## Cleanup
+```bash
+rpm -qa | grep grub
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+grub2-tools
+grub2-common
+```
 
-Treat Simulate GRUB Corruption as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+Verify current boot entry.
+
+```bash
+grubby --default-kernel
+```
+
+Expected output:
+
+```text
+/boot/vmlinuz-6.x
+```
+
+---
+
+Verify current GRUB configuration.
+
+```bash
+ls -l /boot/grub2/grub.cfg
+```
+
+Expected output:
+
+```text
+-rw-r--r--
+```
+
+---
+
+Verify SELinux mode.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+# Backup Existing GRUB Configuration
+
+Create a backup directory.
+
+```bash
+sudo mkdir -p /root/grub-backup
+```
+
+---
+
+Backup GRUB configuration files.
+
+```bash
+sudo cp /boot/grub2/grub.cfg /root/grub-backup/
+```
+
+```bash
+sudo cp -r /boot/loader /root/grub-backup/
+```
+
+---
+
+Verify backup files.
+
+```bash
+ls -l /root/grub-backup
+```
+
+Expected output:
+
+```text
+grub.cfg
+loader/
+```
+
+---
+
+# Simulate GRUB Corruption
+
+Rename the GRUB configuration file.
+
+```bash
+sudo mv /boot/grub2/grub.cfg /boot/grub2/grub.cfg.corrupted
+```
+
+---
+
+Verify corruption simulation.
+
+```bash
+ls -l /boot/grub2/
+```
+
+Expected output:
+
+```text
+grub.cfg.corrupted
+```
+
+---
+
+# Reboot System
+
+Reboot the server.
+
+```bash
+sudo reboot
+```
+
+---
+
+Expected behavior:
+
+```text
+GRUB prompt
+```
+
+or
+
+```text
+Boot failure message
+```
+
+---
+
+# Access Recovery Environment
+
+Boot into rescue mode using installation media or recovery ISO.
+
+Expected environment:
+
+```text
+Rescue Mode
+```
+
+---
+
+Select:
+
+```text
+1) Continue
+```
+
+---
+
+Verify mounted system path.
+
+```bash
+mount | grep sysimage
+```
+
+Expected output:
+
+```text
+/sysroot
+```
+
+---
+
+# Enter Installed System
+
+Change root into the installed system.
+
+```bash
+chroot /mnt/sysimage
+```
+
+Expected prompt:
+
+```text
+sh-5.1#
+```
+
+---
+
+Verify current GRUB files.
+
+```bash
+ls -l /boot/grub2/
+```
+
+Expected output:
+
+```text
+grub.cfg.corrupted
+```
+
+---
+
+# Restore GRUB Configuration
+
+Restore the original GRUB configuration.
+
+```bash
+cp /root/grub-backup/grub.cfg /boot/grub2/grub.cfg
+```
+
+---
+
+Verify restored file.
+
+```bash
+ls -l /boot/grub2/grub.cfg
+```
+
+Expected output:
+
+```text
+-rw-r--r--
+```
+
+---
+
+# Rebuild GRUB Configuration
+
+Generate a new GRUB configuration file.
+
+```bash
+grub2-mkconfig -o /boot/grub2/grub.cfg
+```
+
+Expected output:
+
+```text
+Found linux image
+```
+
+---
+
+Verify boot entries.
+
+```bash
+grep menuentry /boot/grub2/grub.cfg
+```
+
+Expected output:
+
+```text
+menuentry 'Red Hat Enterprise Linux'
+```
+
+---
+
+# Reinstall GRUB Components
+
+Verify EFI directory.
+
+```bash
+ls /boot/efi/EFI/redhat
+```
+
+Expected output:
+
+```text
+grubx64.efi
+```
+
+---
+
+Reinstall GRUB bootloader.
+
+```bash
+grub2-install /dev/sda
+```
+
+Expected output:
+
+```text
+Installation finished. No error reported.
+```
+
+---
+
+# Exit Recovery Environment
+
+Exit chroot.
+
+```bash
+exit
+```
+
+---
+
+Reboot the server.
+
+```bash
+reboot
+```
+
+---
+
+# Validate Normal Boot
+
+Verify successful system login.
+
+```bash
+whoami
+```
+
+Expected output:
+
+```text
+root
+```
+
+---
+
+Verify system operational state.
+
+```bash
+systemctl is-system-running
+```
+
+Expected output:
+
+```text
+running
+```
+
+---
+
+Verify current default kernel.
+
+```bash
+grubby --default-kernel
+```
+
+Expected output:
+
+```text
+/boot/vmlinuz-6.x
+```
+
+---
+
+# Monitoring Validation
+
+Review boot logs.
+
+```bash
+journalctl -b
+```
+
+---
+
+Monitor bootloader-related logs.
+
+```bash
+journalctl | grep grub
+```
+
+---
+
+Verify mounted boot partitions.
+
+```bash
+mount | grep boot
+```
+
+Expected output:
+
+```text
+/boot
+/boot/efi
+```
+
+---
+
+# Logging Validation
+
+Review rescue environment logs.
+
+```bash
+journalctl -xb
+```
+
+---
+
+Review GRUB rebuild operations.
+
+```bash
+journalctl | grep grub2
+```
+
+---
+
+Review boot recovery messages.
+
+```bash
+journalctl | grep EFI
+```
+
+---
+
+# Troubleshooting
+
+Verify GRUB configuration syntax.
+
+```bash
+grub2-script-check /boot/grub2/grub.cfg
+```
+
+---
+
+Verify EFI directory contents.
+
+```bash
+ls -R /boot/efi/EFI/redhat
+```
+
+---
+
+If boot entries are missing:
+
+```bash
+grub2-mkconfig -o /boot/grub2/grub.cfg
+```
+
+---
+
+If bootloader installation fails:
+
+```bash
+grub2-install /dev/sda
+```
+
+---
+
+Verify block devices.
+
+```bash
+lsblk
+```
+
+---
+
+Verify SELinux state.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+# Persistence Validation
+
+Reboot the server again.
+
+```bash
+sudo reboot
+```
+
+---
+
+Verify successful boot after reboot.
+
+```bash
+systemctl is-system-running
+```
+
+Expected output:
+
+```text
+running
+```
+
+---
+
+Verify GRUB configuration persistence.
+
+```bash
+ls -l /boot/grub2/grub.cfg
+```
+
+Expected output:
+
+```text
+-rw-r--r--
+```
+
+---
+
+# Security Validation
+
+Verify SELinux remains enforcing.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+Verify EFI partition mount.
+
+```bash
+mount | grep efi
+```
+
+Expected output:
+
+```text
+/boot/efi
+```
+
+---
+
+Verify bootloader package integrity.
+
+```bash
+rpm -V grub2-tools
+```
+
+---
+
+# Operational Recommendations
+
+- Maintain regular bootloader backups
+- Restrict unauthorized GRUB modifications
+- Protect UEFI settings with passwords
+- Maintain recovery media availability
+- Test recovery procedures regularly
+- Monitor filesystem integrity
+- Document all recovery operations
+- Validate bootloader state after maintenance
+
+---
+
+# Operational Notes
+
+GRUB corruption can prevent systems from booting correctly. Recovery procedures typically involve rescue environments, bootloader restoration, and configuration rebuild operations.
+
+During recovery operations validate:
+
+- EFI partition accessibility
+- GRUB configuration integrity
+- Kernel entry availability
+- Filesystem accessibility
+- Successful bootloader installation
+- SELinux operational state
+- Post-recovery service functionality
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- GRUB corruption is successfully simulated
+- Recovery environment access functions correctly
+- GRUB configuration is restored
+- Bootloader components are rebuilt successfully
+- Normal boot operation is restored
+- SELinux remains enforcing
+- Recovery persistence is verified
+
+---
+
+![Screenshot](../screenshots/simulate-grub-corruption.png)
