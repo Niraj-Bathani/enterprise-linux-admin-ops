@@ -1,32 +1,337 @@
-# Enterprise Linux Administration & Operations
+# Enterprise Linux Administration Operations Lab
 
-This repository is a text-only training project for junior Linux administrators, help desk engineers moving into operations, and platform teams that want structured hands-on practice. It focuses on RHEL compatible systems and covers installation, storage, LVM, RAID, users, permissions, sudo, networking, firewalling, SSH, NFS, FTP, HAProxy, systemd, performance monitoring, boot recovery, troubleshooting, and realistic incident response.
+## Overview
 
-## How To Use This Repository
+The Enterprise Linux Administration Operations Lab is a structured hands-on learning environment designed for practicing enterprise Linux system administration, troubleshooting, monitoring, automation, recovery, networking, and operational workflows on RHEL 9.6 systems.
 
-Start with the setup guides in `docs/setup`, then work through the numbered labs in order. The labs build from basic installation and filesystem work toward multi-tier recovery exercises. Each lab includes objectives, prerequisites, commands, expected output, validation steps, and cleanup guidance. The scripts are examples for disposable lab systems; read them before running and avoid executing storage or recovery scripts on important hosts.
+This repository focuses on real-world operational tasks commonly performed by Linux administrators, infrastructure engineers, site reliability engineers, DevOps engineers, and operations teams in enterprise environments.
 
-## Recommended Lab Topology
+The labs emphasize:
 
-| Role | Example hostname | Purpose |
-|---|---|---|
-| Admin workstation | admin01 | SSH client, documentation, testing |
-| Server node | server01 | Main lab target |
-| Storage node | storage01 | NFS, RAID, LVM, backup drills |
-| Web node | web01 | Apache, HAProxy, application troubleshooting |
+- Practical administration workflows
+- Operational troubleshooting
+- Performance monitoring
+- Service management
+- Enterprise networking
+- Security hardening
+- Automation scripting
+- Incident response
+- Recovery procedures
+- Root cause analysis
 
-## Repository Rules
+---
 
-The repository intentionally contains only Markdown, shell scripts, and plain text configuration examples. No image, binary, or draw.io files are required. Architecture and screenshot folders contain text placeholders so learners can add their own diagrams in private forks if needed.
+# Repository Structure
 
-## Safety
+```text
+enterprise-linux-operations-lab/
+├── fundamentals/
+├── storage-management/
+├── networking/
+├── services/
+├── security/
+├── automation/
+├── monitoring/
+├── troubleshooting/
+├── projects/
+├── scripts/
+├── screenshots/
+├── glossary.md
+├── resources.md
+└── README.md
+```
 
-Practice destructive topics such as partitioning, RAID failure, boot repair, and password reset in snapshots or throwaway virtual machines. Enterprise administration is about controlled change: inspect state, change one thing, validate, document, and keep a rollback path.
+---
 
-## Operator Notes
+# Learning Objectives
 
-Treat Enterprise Linux Administration & Operations as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+After completing this repository you will be able to:
 
-## Validation Habit
+- Manage enterprise Linux systems confidently
+- Troubleshoot operational incidents
+- Analyze performance bottlenecks
+- Configure enterprise services
+- Automate administrative workflows
+- Secure Linux infrastructure
+- Recover failed systems
+- Analyze logs and monitoring data
+- Perform root cause analysis
+- Operate production-style Linux environments
 
-A good administrator validates from two directions: the local system state and the client experience. Do not only check that a daemon is active; also test the socket, review the log, and confirm that persistence survives a reboot. This habit prevents temporary fixes from being mistaken for durable operations. Keep commands readable, prefer documented configuration files, and avoid destructive shortcuts unless a backup and rollback plan are already written.
+---
+
+# Environment Information
+
+| Component | Details |
+|---|---|
+| Operating System | RHEL 9.6 |
+| Shell | Bash |
+| Init System | systemd |
+| Firewall | firewalld |
+| SELinux | Enforcing |
+| Logging | journald + rsyslog |
+| Networking Tools | ss, tcpdump, nmcli |
+| Monitoring Tools | sar, top, vmstat |
+| Troubleshooting Tools | strace, lsof, tcpdump |
+
+---
+
+# Lab Categories
+
+## Linux Fundamentals
+
+Core Linux administration tasks:
+
+- File management
+- User administration
+- Permissions
+- Process management
+- Package management
+- Service control
+- Scheduling jobs
+- Shell operations
+
+---
+
+## Storage Management
+
+Enterprise storage operations:
+
+- Partitioning
+- LVM management
+- Filesystem creation
+- Mount operations
+- RAID troubleshooting
+- Backup workflows
+- Recovery procedures
+
+---
+
+## Networking
+
+Linux networking administration:
+
+- Interface configuration
+- Routing
+- DNS troubleshooting
+- SSH management
+- Firewall operations
+- Packet capture analysis
+- Network troubleshooting
+
+---
+
+## Service Management
+
+Enterprise service operations:
+
+- Apache
+- MariaDB
+- HAProxy
+- SSH
+- systemd
+- Logging services
+- Monitoring services
+
+---
+
+## Security Operations
+
+Linux security workflows:
+
+- SELinux management
+- SSH hardening
+- Firewall restrictions
+- Authentication analysis
+- Log auditing
+- Security validation
+
+---
+
+## Monitoring and Troubleshooting
+
+Operational diagnostics:
+
+- CPU monitoring
+- Memory analysis
+- Disk I/O monitoring
+- Log analysis
+- Root cause analysis
+- Network troubleshooting
+- System call tracing
+
+---
+
+## Automation and Scripting
+
+Operational automation:
+
+- Bash scripting
+- Backup automation
+- Monitoring scripts
+- Health checks
+- Reporting automation
+- Recovery automation
+
+---
+
+# Example Operational Workflows
+
+Examples included in the repository:
+
+```bash
+systemctl status httpd
+journalctl -u sshd
+tcpdump port 80
+strace -p PID
+lsof -i :22
+sar -u 1 5
+firewall-cmd --list-services
+```
+
+---
+
+# Included Enterprise Projects
+
+Projects included:
+
+- Automated backup system
+- Centralized log server
+- Highly available web platform
+- Multi-tier Linux application
+- Secure SSH bastion host
+
+---
+
+# Screenshots and Visual References
+
+The repository includes:
+
+- Operational screenshots
+- Troubleshooting diagrams
+- Monitoring references
+- Enterprise workflow visuals
+- Command reference graphics
+- Cheatsheets
+
+---
+
+# Recommended Usage
+
+Recommended workflow:
+
+```text
+1. Read the lab objective
+2. Configure the environment
+3. Execute commands manually
+4. Validate operational output
+5. Troubleshoot failures
+6. Document findings
+7. Repeat workflows until consistent
+```
+
+---
+
+# Skills Practiced
+
+This repository develops practical experience with:
+
+- Enterprise Linux operations
+- Production troubleshooting
+- Infrastructure monitoring
+- Incident response
+- Recovery validation
+- Automation workflows
+- Service administration
+- Operational diagnostics
+
+---
+
+# Troubleshooting Philosophy
+
+The labs follow a structured operational approach:
+
+```text
+Observation
+    ↓
+Evidence Collection
+    ↓
+Hypothesis Formation
+    ↓
+Validation
+    ↓
+Root Cause Analysis
+    ↓
+Recovery Validation
+```
+
+---
+
+# Operational Recommendations
+
+- Practice commands manually first
+- Preserve troubleshooting evidence
+- Avoid random configuration changes
+- Validate one change at a time
+- Use logs and monitoring tools consistently
+- Document operational findings
+- Practice recovery workflows repeatedly
+- Treat labs like production systems
+
+---
+
+# Intended Audience
+
+This repository is useful for:
+
+- Linux administrators
+- DevOps engineers
+- Site reliability engineers
+- Infrastructure engineers
+- SOC analysts
+- Support engineers
+- Students preparing for RHCSA/RHCE
+- Enterprise operations teams
+
+---
+
+# Expected Outcome
+
+After completing this repository:
+
+- Linux administration skills improve significantly
+- Troubleshooting becomes structured
+- Operational confidence increases
+- Enterprise workflows become familiar
+- Monitoring and recovery skills improve
+- Production Linux operations become easier to manage
+
+---
+
+# Screenshots
+
+```text
+screenshots/
+```
+
+Contains:
+
+- Operational terminal screenshots
+- Monitoring dashboards
+- Troubleshooting references
+- Enterprise architecture visuals
+- Workflow diagrams
+
+---
+
+# Notes
+
+This repository is designed for educational and operational practice purposes using realistic enterprise Linux administration workflows.
+
+All examples assume:
+
+- RHEL 9.6
+- SELinux enforcing
+- firewalld enabled
+- systemd-based systems
+
