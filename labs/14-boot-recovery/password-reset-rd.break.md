@@ -1,46 +1,549 @@
-# Password Reset Rd Break
+# Password Reset Using rd.break
 
-## Objective
+## Overview
 
-In this lab you will practice password reset rd break on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates enterprise Linux root password recovery using the `rd.break` boot parameter on RHEL 9.6 systems. The process interrupts the boot sequence before the root filesystem fully mounts, allowing administrative recovery access from the initramfs environment.
 
-## Prerequisites
+The procedure is commonly used during operational recovery scenarios where root credentials are unavailable or administrative access is lost.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `efibootmgr -v` and record the output in your lab notes.
-2. Run `grub2-mkconfig -o /boot/grub2/grub.cfg` and record the output in your lab notes.
-3. Run `dracut -f` and record the output in your lab notes.
-4. Run `lsinitrd /boot/initramfs-$(uname -r).img | head` and record the output in your lab notes.
-5. Run `journalctl -b -1 -p warning` and record the output in your lab notes.
+In this lab you will:
 
-Example command sequence:
+- Interrupt the GRUB boot process
+- Boot into emergency initramfs mode
+- Remount the root filesystem
+- Reset the root password
+- Relabel SELinux contexts
+- Reboot the system safely
+- Validate post-recovery access
+- Verify persistence after reboot
+
+---
+
+# Environment Information
+
+| Hostname | Role | IP Address |
+|---|---|---|
+| rhel9-recovery01.prod.lab | Recovery Target Server | 192.168.20.10 |
+
+Environment details:
+
+- Operating System: RHEL 9.6
+- SELinux: Enforcing
+- Boot Mode: UEFI
+- Filesystem: XFS
+- Bootloader: GRUB2
+
+---
+
+# Initial Validation
+
+Verify current hostname.
 
 ```bash
-efibootmgr -v
-grub2-mkconfig -o /boot/grub2/grub.cfg
-dracut -f
-lsinitrd /boot/initramfs-$(uname -r).img | head
-journalctl -b -1 -p warning
+hostnamectl
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+ Static hostname: rhel9-recovery01.prod.lab
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+Verify SELinux mode.
 
-## Cleanup
+```bash
+getenforce
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+Enforcing
+```
 
-Treat Password Reset Rd Break as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+Verify current root filesystem mount.
+
+```bash
+mount | grep ' / '
+```
+
+Expected output:
+
+```text
+/dev/mapper/rhel-root on / type xfs
+```
+
+---
+
+Verify current boot target.
+
+```bash
+systemctl get-default
+```
+
+Expected output:
+
+```text
+multi-user.target
+```
+
+---
+
+# Reboot System into GRUB Menu
+
+Reboot the system.
+
+```bash
+sudo reboot
+```
+
+---
+
+At the GRUB menu:
+
+- Highlight the active kernel entry
+- Press `e` to edit boot parameters
+
+---
+
+Locate the kernel line beginning with:
+
+```text
+linux
+```
+
+---
+
+Append the following parameter to the end of the line.
+
+```text
+rd.break
+```
+
+---
+
+Boot using:
+
+```text
+Ctrl + x
+```
+
+or
+
+```text
+F10
+```
+
+---
+
+# Enter Recovery Environment
+
+After boot interruption the system enters the initramfs shell.
+
+Expected prompt:
+
+```text
+switch_root:/#
+```
+
+---
+
+Verify root filesystem state.
+
+```bash
+mount | grep sysroot
+```
+
+Expected output:
+
+```text
+/dev/mapper/rhel-root on /sysroot
+```
+
+---
+
+# Remount Root Filesystem
+
+Remount the root filesystem with write access.
+
+```bash
+mount -o remount,rw /sysroot
+```
+
+---
+
+Change root into the mounted system.
+
+```bash
+chroot /sysroot
+```
+
+Expected prompt:
+
+```text
+sh-5.1#
+```
+
+---
+
+# Reset Root Password
+
+Reset the root password.
+
+```bash
+passwd root
+```
+
+Expected output:
+
+```text
+Changing password for user root.
+```
+
+---
+
+Enter the new password when prompted.
+
+Expected output:
+
+```text
+passwd: all authentication tokens updated successfully.
+```
+
+---
+
+# Relabel SELinux Contexts
+
+Create the SELinux autorelabel trigger file.
+
+```bash
+touch /.autorelabel
+```
+
+---
+
+Verify the file exists.
+
+```bash
+ls -l /.autorelabel
+```
+
+Expected output:
+
+```text
+-rw-r--r--
+```
+
+---
+
+# Exit Recovery Environment
+
+Exit the chroot shell.
+
+```bash
+exit
+```
+
+---
+
+Exit the initramfs shell.
+
+```bash
+exit
+```
+
+---
+
+The system will reboot automatically.
+
+---
+
+# Validate Root Login
+
+After reboot complete, log in using the new root password.
+
+Verify current user.
+
+```bash
+whoami
+```
+
+Expected output:
+
+```text
+root
+```
+
+---
+
+Verify SELinux relabel completed successfully.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+Verify system boot state.
+
+```bash
+systemctl is-system-running
+```
+
+Expected output:
+
+```text
+running
+```
+
+---
+
+# Monitoring Validation
+
+Verify boot messages.
+
+```bash
+journalctl -b
+```
+
+---
+
+Monitor authentication logs.
+
+```bash
+sudo journalctl | grep password
+```
+
+---
+
+Verify filesystem mounts.
+
+```bash
+mount | grep sysroot
+```
+
+Expected output:
+
+```text
+No output
+```
+
+---
+
+# Logging Validation
+
+Review boot logs.
+
+```bash
+journalctl -b -0
+```
+
+---
+
+Review SELinux relabel activity.
+
+```bash
+journalctl | grep autorelabel
+```
+
+---
+
+Review authentication activity.
+
+```bash
+journalctl | grep passwd
+```
+
+---
+
+# Troubleshooting
+
+Verify GRUB entry editing.
+
+```text
+Press e at GRUB menu
+```
+
+---
+
+If filesystem mounts read-only again:
+
+```bash
+mount -o remount,rw /sysroot
+```
+
+---
+
+If password reset fails:
+
+```bash
+passwd root
+```
+
+---
+
+If SELinux causes login issues:
+
+```bash
+touch /.autorelabel
+```
+
+---
+
+Verify root filesystem integrity.
+
+```bash
+lsblk
+```
+
+---
+
+Verify SELinux mode after reboot.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+# Persistence Validation
+
+Reboot the system again.
+
+```bash
+sudo reboot
+```
+
+---
+
+Log in using the updated password.
+
+Verify root access persists.
+
+```bash
+whoami
+```
+
+Expected output:
+
+```text
+root
+```
+
+---
+
+Verify system services.
+
+```bash
+systemctl --failed
+```
+
+Expected output:
+
+```text
+0 loaded units listed
+```
+
+---
+
+# Security Validation
+
+Verify SELinux remains enforcing.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+Verify password aging information.
+
+```bash
+chage -l root
+```
+
+---
+
+Verify root account status.
+
+```bash
+passwd -S root
+```
+
+Expected output:
+
+```text
+root PS
+```
+
+---
+
+# Operational Recommendations
+
+- Maintain secure root password storage procedures
+- Restrict physical console access
+- Protect GRUB with passwords in production environments
+- Monitor unauthorized reboot attempts
+- Use centralized authentication where possible
+- Validate SELinux relabel operations after recovery
+- Document all password recovery events
+- Test recovery procedures in lab environments regularly
+
+---
+
+# Operational Notes
+
+The `rd.break` method interrupts the boot sequence before the normal system initialization process completes. This allows administrative recovery access from the initramfs environment.
+
+During recovery operations validate:
+
+- Filesystem mount state
+- SELinux relabel requirements
+- Root filesystem accessibility
+- Password update completion
+- Successful post-recovery login
+- Service startup state after reboot
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- The root password is successfully reset
+- The system boots normally
+- SELinux relabel completes successfully
+- Root login functions correctly
+- System services operate normally
+- Recovery persistence is verified
+- System security state remains intact
+
+---
+
+![Screenshot](../screenshots/password-reset-rd-break.png)
