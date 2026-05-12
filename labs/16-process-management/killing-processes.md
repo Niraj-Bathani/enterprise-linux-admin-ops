@@ -1,42 +1,606 @@
 # Killing Processes
 
-## Objective
+## Overview
 
-In this lab you will practice killing processes on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates Linux process termination and signal management workflows on RHEL 9.6 systems. The exercise covers identifying running processes, sending termination signals, forcefully stopping unresponsive tasks, monitoring process states, and validating operational recovery procedures.
 
-## Prerequisites
+The lab follows enterprise Linux operational practices using standard process management utilities with SELinux enforcing and firewalld enabled.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `ps -eo pid,ppid,user,stat,comm,%cpu,%mem --sort=-%cpu | head` and record the output in your lab notes.
-2. Run `top -b -n1 | head -20` and record the output in your lab notes.
-3. Run `nice -n 10 command` and record the output in your lab notes.
-4. Run `renice 5 -p 1234` and record the output in your lab notes.
-5. Run `kill -TERM 1234` and record the output in your lab notes.
+In this lab you will:
 
-Example command sequence:
+- Identify active processes
+- Send termination signals
+- Forcefully kill unresponsive processes
+- Manage processes using PID values
+- Use pkill and killall utilities
+- Monitor process states
+- Troubleshoot stuck processes
+- Validate process cleanup operations
+
+---
+
+# Environment Information
+
+| Hostname | Role | IP Address |
+|---|---|---|
+| rhel9-process01.prod.lab | Process Management Server | 192.168.40.10 |
+
+Environment details:
+
+- Operating System: RHEL 9.6
+- Shell Environment: Bash
+- SELinux: Enforcing
+- firewalld: Enabled
+- Process Utilities: kill, pkill, killall
+
+---
+
+# Initial Validation
+
+Verify hostname configuration.
 
 ```bash
-ps -eo pid,ppid,user,stat,comm,%cpu,%mem --sort=-%cpu | head
-top -b -n1 | head -20
-nice -n 10 command
-renice 5 -p 1234
-kill -TERM 1234
+hostnamectl
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+ Static hostname: rhel9-process01.prod.lab
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+Verify current shell.
 
-## Cleanup
+```bash
+echo $SHELL
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
+
+```text
+/bin/bash
+```
+
+---
+
+Verify SELinux mode.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+Verify current logged-in user.
+
+```bash
+whoami
+```
+
+Expected output:
+
+```text
+root
+```
+
+---
+
+# Create Test Processes
+
+Start a sleep process in the background.
+
+```bash
+sleep 500 &
+```
+
+Expected output:
+
+```text
+[1] 2145
+```
+
+---
+
+Start another background process.
+
+```bash
+sleep 700 &
+```
+
+Expected output:
+
+```text
+[2] 2152
+```
+
+---
+
+Verify active jobs.
+
+```bash
+jobs
+```
+
+Expected output:
+
+```text
+Running
+```
+
+---
+
+# Identify Running Processes
+
+View running sleep processes.
+
+```bash
+ps -ef | grep sleep
+```
+
+Expected output:
+
+```text
+sleep 500
+sleep 700
+```
+
+---
+
+View process IDs only.
+
+```bash
+pgrep sleep
+```
+
+Expected output:
+
+```text
+2145
+2152
+```
+
+---
+
+View process tree.
+
+```bash
+pstree -p
+```
+
+Expected output:
+
+```text
+bash---sleep
+```
+
+---
+
+# Terminate Process Using kill
+
+Terminate the first process gracefully.
+
+```bash
+kill 2145
+```
+
+---
+
+Verify process removal.
+
+```bash
+ps -ef | grep sleep
+```
+
+Expected output:
+
+```text
+sleep 700
+```
+
+---
+
+Verify remaining jobs.
+
+```bash
+jobs
+```
+
+Expected output:
+
+```text
+[2]+ Running sleep 700 &
+```
+
+---
+
+# Force Kill Unresponsive Process
+
+Send SIGKILL signal.
+
+```bash
+kill -9 2152
+```
+
+Expected output:
+
+```text
+Killed
+```
+
+---
+
+Verify process termination.
+
+```bash
+ps -ef | grep sleep
+```
+
+Expected output:
+
+```text
+No output
+```
+
+---
+
+# Use pkill Utility
+
+Start new test processes.
+
+```bash
+sleep 600 &
+```
+
+```bash
+sleep 650 &
+```
+
+---
+
+Verify active processes.
+
+```bash
+pgrep sleep
+```
+
+Expected output:
+
+```text
+PID values
+```
+
+---
+
+Terminate all sleep processes.
+
+```bash
+pkill sleep
+```
+
+---
+
+Verify cleanup.
+
+```bash
+pgrep sleep
+```
+
+Expected output:
+
+```text
+No output
+```
+
+---
+
+# Use killall Utility
+
+Start additional processes.
+
+```bash
+sleep 800 &
+```
+
+```bash
+sleep 900 &
+```
+
+---
+
+Verify processes.
+
+```bash
+ps -ef | grep sleep
+```
+
+---
+
+Terminate all processes using killall.
+
+```bash
+killall sleep
+```
+
+---
+
+Verify all processes stopped.
+
+```bash
+ps -ef | grep sleep
+```
+
+Expected output:
+
+```text
+No output
+```
+
+---
+
+# Monitoring Validation
+
+Monitor active processes.
+
+```bash
+ps -ef
+```
+
+---
+
+Monitor resource usage.
+
+```bash
+top
+```
+
+Expected output:
+
+```text
+Tasks:
+```
+
+---
+
+Monitor specific PIDs.
+
+```bash
+ps -p PID -f
+```
+
+---
+
+Monitor process hierarchy.
+
+```bash
+pstree -p
+```
+
+---
+
+# Logging Validation
+
+Review process-related logs.
+
+```bash
+journalctl | grep kill
+```
+
+---
+
+Review shell session activity.
+
+```bash
+journalctl | grep bash
+```
+
+---
+
+Review recent system logs.
+
+```bash
+journalctl -n 20
+```
+
+Expected output:
+
+```text
+systemd
+```
+
+---
+
+# Troubleshooting
+
+Verify active processes.
+
+```bash
+ps -ef
+```
+
+---
+
+Verify specific PID status.
+
+```bash
+ps -p PID
+```
+
+---
+
+If process ignores SIGTERM:
+
+```bash
+kill -9 PID
+```
+
+---
+
+Verify process ownership.
+
+```bash
+ps -u root
+```
+
+---
+
+Verify SELinux mode.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+# Persistence Validation
+
+Start a background process.
+
+```bash
+sleep 500 &
+```
+
+---
+
+Verify process exists.
+
+```bash
+pgrep sleep
+```
+
+Expected output:
+
+```text
+PID
+```
+
+---
+
+Terminate the process.
+
+```bash
+pkill sleep
+```
+
+---
+
+Verify cleanup persists.
+
+```bash
+pgrep sleep
+```
+
+Expected output:
+
+```text
+No output
+```
+
+---
+
+# Security Validation
+
+Verify running user processes.
+
+```bash
+ps -u root
+```
+
+---
+
+Verify process ownership.
+
+```bash
+ps -ef | grep sleep
+```
+
+Expected output:
+
+```text
+No output
+```
+
+---
+
+Verify SELinux remains enforcing.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+# Operational Recommendations
+
+- Use SIGTERM before SIGKILL whenever possible
+- Monitor critical processes carefully
+- Validate process ownership before termination
+- Avoid killing production-critical services accidentally
+- Monitor resource utilization regularly
+- Document operational maintenance tasks
+- Use process filters carefully with pkill and killall
+- Validate cleanup operations after maintenance
+
+---
+
+# Operational Notes
+
+Linux signals provide administrators with controlled methods for terminating or managing running processes.
+
+Common operational signals:
+
+- SIGTERM (15) for graceful termination
+- SIGKILL (9) for forceful termination
+- SIGSTOP for process suspension
+- SIGCONT for process continuation
+
+During troubleshooting validate:
+
+- Process ownership
+- Process responsiveness
+- PID accuracy
+- Resource utilization
+- Service dependencies
+- Process hierarchy
+- SELinux operational state
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- Process identification workflows function correctly
+- Signals terminate processes successfully
+- Forceful process cleanup operates properly
+- pkill and killall utilities function correctly
+- Monitoring and troubleshooting workflows operate successfully
+- SELinux remains enforcing
+- Operational process management workflows are validated
+
+---
+
+![Screenshot](../screenshots/killing-processes.png)
