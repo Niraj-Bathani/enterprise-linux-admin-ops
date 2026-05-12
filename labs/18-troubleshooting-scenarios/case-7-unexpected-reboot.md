@@ -1,46 +1,681 @@
 # Case 7 Unexpected Reboot
 
-## Objective
+## Overview
 
-In this lab you will practice case 7 unexpected reboot on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates troubleshooting unexpected system reboot events on RHEL 9.6 systems. The exercise covers identifying reboot causes, analyzing kernel and system logs, validating hardware and resource conditions, reviewing crash indicators, and restoring operational stability using enterprise Linux troubleshooting workflows.
 
-## Prerequisites
+The workflow follows realistic enterprise Linux operational practices with SELinux enforcing and firewalld enabled.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `efibootmgr -v` and record the output in your lab notes.
-2. Run `grub2-mkconfig -o /boot/grub2/grub.cfg` and record the output in your lab notes.
-3. Run `dracut -f` and record the output in your lab notes.
-4. Run `lsinitrd /boot/initramfs-$(uname -r).img | head` and record the output in your lab notes.
-5. Run `journalctl -b -1 -p warning` and record the output in your lab notes.
+In this lab you will:
 
-Example command sequence:
+- Identify unexpected reboot events
+- Analyze system boot history
+- Review kernel and crash logs
+- Validate hardware and resource conditions
+- Monitor system stability
+- Troubleshoot reboot causes
+- Verify service recovery
+- Validate operational troubleshooting workflows
+
+---
+
+# Environment Information
+
+| Hostname | Role | IP Address |
+|---|---|---|
+| rhel9-core01.prod.lab | Core Infrastructure Server | 192.168.60.190 |
+
+Environment details:
+
+- Operating System: RHEL 9.6
+- SELinux: Enforcing
+- firewalld: Enabled
+- Monitoring Utilities: journalctl, last, vmstat
+- Crash Utility: kdump
+
+---
+
+# Initial Validation
+
+Verify hostname configuration.
 
 ```bash
-efibootmgr -v
-grub2-mkconfig -o /boot/grub2/grub.cfg
-dracut -f
-lsinitrd /boot/initramfs-$(uname -r).img | head
-journalctl -b -1 -p warning
+hostnamectl
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+Static hostname: rhel9-core01.prod.lab
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+Verify SELinux mode.
 
-## Cleanup
+```bash
+getenforce
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+Enforcing
+```
 
-Treat Case 7 Unexpected Reboot as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+Verify system uptime.
+
+```bash
+uptime
+```
+
+Expected output:
+
+```text
+up
+```
+
+---
+
+Verify kdump service state.
+
+```bash
+systemctl status kdump
+```
+
+Expected output:
+
+```text
+active (exited)
+```
+
+---
+
+# Validate Boot History
+
+Display reboot history.
+
+```bash
+last reboot
+```
+
+Expected output:
+
+```text
+reboot system boot
+```
+
+---
+
+Display previous shutdown events.
+
+```bash
+last -x | grep shutdown
+```
+
+Expected output:
+
+```text
+shutdown
+```
+
+---
+
+Verify current boot ID.
+
+```bash
+cat /proc/sys/kernel/random/boot_id
+```
+
+Expected output:
+
+```text
+UUID
+```
+
+---
+
+# Simulate Unexpected Reboot Scenario
+
+Generate system workload.
+
+```bash
+stress --cpu 4 --vm 2 --vm-bytes 1G --timeout 120 &
+```
+
+Expected output:
+
+```text
+stress:
+```
+
+---
+
+Verify workload execution.
+
+```bash
+ps -ef | grep stress
+```
+
+Expected output:
+
+```text
+stress
+```
+
+---
+
+Review current uptime during workload.
+
+```bash
+uptime
+```
+
+Expected output:
+
+```text
+load average
+```
+
+---
+
+# Analyze System Logs
+
+Review previous boot logs.
+
+```bash
+journalctl -b -1
+```
+
+Expected output:
+
+```text
+kernel:
+```
+
+---
+
+Review kernel panic indicators.
+
+```bash
+journalctl -k | grep -i panic
+```
+
+Expected output:
+
+```text
+panic
+```
+
+---
+
+Review hardware-related logs.
+
+```bash
+journalctl | grep -i error
+```
+
+Expected output:
+
+```text
+hardware error
+```
+
+---
+
+# Analyze Crash Information
+
+Verify crash dump configuration.
+
+```bash
+kdumpctl status
+```
+
+Expected output:
+
+```text
+Kdump is operational
+```
+
+---
+
+Verify crash dump location.
+
+```bash
+ls -lh /var/crash
+```
+
+Expected output:
+
+```text
+vmcore
+```
+
+---
+
+Review crash service logs.
+
+```bash
+journalctl -u kdump
+```
+
+Expected output:
+
+```text
+Starting Crash recovery kernel
+```
+
+---
+
+# Validate Resource Utilization
+
+Monitor memory and CPU activity.
+
+```bash
+vmstat 2 5
+```
+
+Expected output:
+
+```text
+memory cpu
+```
+
+---
+
+Monitor system load.
+
+```bash
+top
+```
+
+Expected output:
+
+```text
+Tasks:
+```
+
+---
+
+Monitor disk activity.
+
+```bash
+iostat 2 5
+```
+
+Expected output:
+
+```text
+Device
+```
+
+---
+
+# Validate Hardware Health
+
+Review hardware events.
+
+```bash
+dmesg | grep -i hardware
+```
+
+Expected output:
+
+```text
+hardware
+```
+
+---
+
+Review storage-related messages.
+
+```bash
+journalctl | grep -i sda
+```
+
+Expected output:
+
+```text
+I/O error
+```
+
+---
+
+Verify active block devices.
+
+```bash
+lsblk
+```
+
+Expected output:
+
+```text
+sda
+```
+
+---
+
+# Recover System Stability
+
+Terminate workload processes.
+
+```bash
+pkill stress
+```
+
+---
+
+Verify workload cleanup.
+
+```bash
+ps -ef | grep stress
+```
+
+Expected output:
+
+```text
+No output
+```
+
+---
+
+Restart failed services if required.
+
+```bash
+sudo systemctl restart kdump
+```
+
+---
+
+Verify system stability.
+
+```bash
+uptime
+```
+
+Expected output:
+
+```text
+load average
+```
+
+---
+
+# Monitoring Validation
+
+Monitor system logs live.
+
+```bash
+journalctl -f
+```
+
+---
+
+Monitor reboot events.
+
+```bash
+last reboot
+```
+
+---
+
+Monitor system resource usage.
+
+```bash
+top
+```
+
+---
+
+Monitor kernel messages.
+
+```bash
+dmesg -w
+```
+
+---
+
+# Logging Validation
+
+Review recent system logs.
+
+```bash
+journalctl -n 50
+```
+
+Expected output:
+
+```text
+systemd
+```
+
+---
+
+Review kernel logs.
+
+```bash
+journalctl -k
+```
+
+Expected output:
+
+```text
+kernel
+```
+
+---
+
+Review failed service logs.
+
+```bash
+systemctl --failed
+```
+
+Expected output:
+
+```text
+0 loaded units listed
+```
+
+---
+
+# Troubleshooting
+
+Verify uptime stability.
+
+```bash
+uptime
+```
+
+---
+
+Verify boot history.
+
+```bash
+last reboot
+```
+
+---
+
+Verify active services.
+
+```bash
+systemctl list-units --type=service
+```
+
+---
+
+Verify kdump status.
+
+```bash
+kdumpctl status
+```
+
+Expected output:
+
+```text
+operational
+```
+
+---
+
+Verify SELinux mode.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+# Persistence Validation
+
+Reboot the server.
+
+```bash
+sudo reboot
+```
+
+---
+
+Verify clean system boot.
+
+```bash
+last reboot | head
+```
+
+Expected output:
+
+```text
+still running
+```
+
+---
+
+Verify kdump service state after reboot.
+
+```bash
+systemctl status kdump
+```
+
+Expected output:
+
+```text
+active (exited)
+```
+
+---
+
+Verify uptime after reboot.
+
+```bash
+uptime
+```
+
+Expected output:
+
+```text
+up
+```
+
+---
+
+# Security Validation
+
+Verify SELinux remains enforcing.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+Verify running services.
+
+```bash
+systemctl --failed
+```
+
+Expected output:
+
+```text
+0 loaded units listed
+```
+
+---
+
+Verify crash dump permissions.
+
+```bash
+ls -ld /var/crash
+```
+
+Expected output:
+
+```text
+drwx------
+```
+
+---
+
+# Operational Recommendations
+
+- Monitor reboot history continuously
+- Investigate unexpected reboots immediately
+- Enable and validate kdump services
+- Monitor hardware and storage errors regularly
+- Review kernel panic logs carefully
+- Maintain crash dump retention policies
+- Document operational recovery workflows
+- Monitor resource-intensive workloads carefully
+
+---
+
+# Operational Notes
+
+Unexpected reboot events commonly occur due to kernel panics, hardware failures, storage issues, memory exhaustion, or power-related interruptions.
+
+During troubleshooting validate:
+
+- Boot history
+- Kernel logs
+- Hardware events
+- Crash dump availability
+- System resource utilization
+- Failed services
+- SELinux operational state
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- Unexpected reboot events are identified successfully
+- Boot history analysis functions correctly
+- Crash log validation operates properly
+- Resource monitoring workflows function successfully
+- System recovery operations work correctly
+- SELinux remains enforcing
+- Operational troubleshooting workflows are validated
+
+---
+
+![Screenshot](../screenshots/case-7-unexpected-reboot.png)
