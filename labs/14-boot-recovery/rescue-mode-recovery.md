@@ -1,46 +1,612 @@
 # Rescue Mode Recovery
 
-## Objective
+## Overview
 
-In this lab you will practice rescue mode recovery on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates system recovery using Rescue Mode on RHEL 9.6 systems. Rescue Mode provides a maintenance environment for troubleshooting boot failures, repairing filesystems, recovering configuration issues, and restoring administrative access.
 
-## Prerequisites
+The procedure is commonly used during enterprise Linux operational recovery scenarios involving damaged services, filesystem inconsistencies, or failed boot processes.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `efibootmgr -v` and record the output in your lab notes.
-2. Run `grub2-mkconfig -o /boot/grub2/grub.cfg` and record the output in your lab notes.
-3. Run `dracut -f` and record the output in your lab notes.
-4. Run `lsinitrd /boot/initramfs-$(uname -r).img | head` and record the output in your lab notes.
-5. Run `journalctl -b -1 -p warning` and record the output in your lab notes.
+In this lab you will:
 
-Example command sequence:
+- Boot into Rescue Mode
+- Access the rescue environment
+- Mount the system filesystem
+- Enter the installed system using chroot
+- Perform recovery operations
+- Validate filesystem accessibility
+- Verify SELinux state
+- Validate normal boot recovery
+
+---
+
+# Environment Information
+
+| Hostname | Role | IP Address |
+|---|---|---|
+| rhel9-recovery01.prod.lab | Recovery Target Server | 192.168.20.10 |
+
+Environment details:
+
+- Operating System: RHEL 9.6
+- SELinux: Enforcing
+- Boot Mode: UEFI
+- Filesystem: XFS
+- Bootloader: GRUB2
+
+---
+
+# Initial Validation
+
+Verify current hostname.
 
 ```bash
-efibootmgr -v
-grub2-mkconfig -o /boot/grub2/grub.cfg
-dracut -f
-lsinitrd /boot/initramfs-$(uname -r).img | head
-journalctl -b -1 -p warning
+hostnamectl
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+ Static hostname: rhel9-recovery01.prod.lab
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+Verify current SELinux mode.
 
-## Cleanup
+```bash
+getenforce
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+Enforcing
+```
 
-Treat Rescue Mode Recovery as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+Verify current boot target.
+
+```bash
+systemctl get-default
+```
+
+Expected output:
+
+```text
+multi-user.target
+```
+
+---
+
+Verify root filesystem.
+
+```bash
+mount | grep ' / '
+```
+
+Expected output:
+
+```text
+/dev/mapper/rhel-root on / type xfs
+```
+
+---
+
+# Boot into Rescue Mode
+
+Reboot the system.
+
+```bash
+sudo reboot
+```
+
+---
+
+At the GRUB menu:
+
+- Select the active RHEL kernel entry
+- Press `e` to edit boot parameters
+
+---
+
+Locate the kernel line beginning with:
+
+```text
+linux
+```
+
+---
+
+Append the following parameter.
+
+```text
+systemd.unit=rescue.target
+```
+
+---
+
+Boot using:
+
+```text
+Ctrl + x
+```
+
+or
+
+```text
+F10
+```
+
+---
+
+# Enter Rescue Environment
+
+The system will boot into rescue mode.
+
+Expected prompt:
+
+```text
+Give root password for maintenance
+```
+
+---
+
+Enter the root password.
+
+Expected output:
+
+```text
+Entering emergency mode
+```
+
+---
+
+Verify current target.
+
+```bash
+systemctl get-default
+```
+
+Expected output:
+
+```text
+multi-user.target
+```
+
+---
+
+Verify current mode.
+
+```bash
+systemctl list-units --type=target
+```
+
+Expected output:
+
+```text
+rescue.target loaded active active Rescue Mode
+```
+
+---
+
+# Verify Filesystem Accessibility
+
+Verify mounted filesystems.
+
+```bash
+mount | grep sysroot
+```
+
+Expected output:
+
+```text
+/dev/mapper/rhel-root
+```
+
+---
+
+Verify disk devices.
+
+```bash
+lsblk
+```
+
+Expected output:
+
+```text
+sda
+├─sda1
+├─sda2
+```
+
+---
+
+Verify filesystem usage.
+
+```bash
+df -h
+```
+
+Expected output:
+
+```text
+/dev/mapper/rhel-root
+```
+
+---
+
+# Enter Installed System
+
+Enter the installed operating system environment.
+
+```bash
+chroot /sysroot
+```
+
+Expected prompt:
+
+```text
+sh-5.1#
+```
+
+---
+
+Verify current root filesystem.
+
+```bash
+mount | grep ' / '
+```
+
+Expected output:
+
+```text
+/dev/mapper/rhel-root on /
+```
+
+---
+
+# Perform Recovery Operations
+
+Verify system logs.
+
+```bash
+journalctl -xb
+```
+
+---
+
+Verify failed services.
+
+```bash
+systemctl --failed
+```
+
+Expected output:
+
+```text
+0 loaded units listed
+```
+
+---
+
+Verify network configuration.
+
+```bash
+ip addr
+```
+
+---
+
+Verify SELinux mode.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+# Exit Rescue Environment
+
+Exit the chroot shell.
+
+```bash
+exit
+```
+
+---
+
+Reboot the system normally.
+
+```bash
+reboot
+```
+
+---
+
+# Validate Normal Boot
+
+Verify successful login after reboot.
+
+```bash
+whoami
+```
+
+Expected output:
+
+```text
+root
+```
+
+---
+
+Verify normal system state.
+
+```bash
+systemctl is-system-running
+```
+
+Expected output:
+
+```text
+running
+```
+
+---
+
+Verify current target.
+
+```bash
+systemctl get-default
+```
+
+Expected output:
+
+```text
+multi-user.target
+```
+
+---
+
+# Monitoring Validation
+
+Review boot logs.
+
+```bash
+journalctl -b
+```
+
+---
+
+Monitor failed units.
+
+```bash
+systemctl --failed
+```
+
+Expected output:
+
+```text
+0 loaded units listed
+```
+
+---
+
+Monitor active targets.
+
+```bash
+systemctl list-units --type=target
+```
+
+---
+
+# Logging Validation
+
+Review rescue boot logs.
+
+```bash
+journalctl -xb
+```
+
+---
+
+Review authentication logs.
+
+```bash
+journalctl | grep login
+```
+
+---
+
+Review SELinux activity.
+
+```bash
+journalctl | grep selinux
+```
+
+---
+
+# Troubleshooting
+
+If rescue mode does not start:
+
+```text
+Verify kernel boot parameter syntax
+```
+
+---
+
+If filesystem mounts read-only:
+
+```bash
+mount -o remount,rw /
+```
+
+---
+
+Verify root filesystem.
+
+```bash
+lsblk
+```
+
+---
+
+Verify SELinux mode.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+If system services fail after reboot:
+
+```bash
+systemctl --failed
+```
+
+---
+
+# Persistence Validation
+
+Reboot the system again.
+
+```bash
+sudo reboot
+```
+
+---
+
+Verify successful normal boot.
+
+```bash
+systemctl is-system-running
+```
+
+Expected output:
+
+```text
+running
+```
+
+---
+
+Verify rescue mode is no longer active.
+
+```bash
+systemctl list-units --type=target
+```
+
+Expected output:
+
+```text
+multi-user.target loaded active active Multi-User System
+```
+
+---
+
+# Security Validation
+
+Verify SELinux remains enforcing.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+Verify root account accessibility.
+
+```bash
+passwd -S root
+```
+
+Expected output:
+
+```text
+root PS
+```
+
+---
+
+Verify active firewall state.
+
+```bash
+systemctl status firewalld
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+---
+
+# Operational Recommendations
+
+- Test rescue procedures regularly in lab environments
+- Maintain recent configuration backups
+- Protect GRUB access in production systems
+- Monitor filesystem integrity continuously
+- Validate SELinux state after recovery
+- Document recovery activities
+- Restrict unauthorized console access
+- Validate service recovery after maintenance
+
+---
+
+# Operational Notes
+
+Rescue Mode provides a minimal operational environment for maintenance and troubleshooting operations while keeping the system partially operational.
+
+During recovery operations validate:
+
+- Filesystem accessibility
+- SELinux status
+- Systemd targets
+- Service recovery state
+- Bootloader integrity
+- Network configuration
+- Disk accessibility
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- Rescue Mode boots successfully
+- Filesystems are accessible
+- Recovery operations complete successfully
+- SELinux remains enforcing
+- System services recover correctly
+- Normal boot operation is restored
+- Recovery persistence is validated
+
+---
+
+![Screenshot](../screenshots/rescue-mode-recovery.png)
