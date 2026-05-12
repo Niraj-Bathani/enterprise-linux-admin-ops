@@ -1,46 +1,586 @@
 # Masking Services
 
-## Objective
+## Overview
 
-In this lab you will practice masking services on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates service masking operations using systemd on RHEL 9.6 systems. The exercise covers disabling service startup completely, validating masked service behavior, troubleshooting service states, and restoring services back to operational status.
 
-## Prerequisites
+The workflow follows enterprise Linux operational practices using systemd service management with SELinux enforcing and firewalld enabled.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `systemctl status sshd` and record the output in your lab notes.
-2. Run `systemctl enable --now firewalld` and record the output in your lab notes.
-3. Run `journalctl -u sshd -b` and record the output in your lab notes.
-4. Run `systemctl list-units --failed` and record the output in your lab notes.
-5. Run `systemctl cat sshd` and record the output in your lab notes.
+In this lab you will:
 
-Example command sequence:
+- Identify active services
+- Disable and mask services
+- Validate masked service behavior
+- Compare disable vs mask operations
+- Restore masked services
+- Monitor service states
+- Troubleshoot service startup issues
+- Verify persistence after reboot
+
+---
+
+# Environment Information
+
+| Hostname | Role | IP Address |
+|---|---|---|
+| rhel9-systemd01.prod.lab | systemd Management Server | 192.168.30.10 |
+
+Environment details:
+
+- Operating System: RHEL 9.6
+- Init System: systemd
+- SELinux: Enforcing
+- firewalld: Enabled
+- Service Management: systemctl
+
+---
+
+# Initial Validation
+
+Verify hostname configuration.
 
 ```bash
-systemctl status sshd
-systemctl enable --now firewalld
-journalctl -u sshd -b
-systemctl list-units --failed
-systemctl cat sshd
+hostnamectl
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+ Static hostname: rhel9-systemd01.prod.lab
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+Verify current init system.
 
-## Cleanup
+```bash
+ps -p 1
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+systemd
+```
 
-Treat Masking Services as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+Verify SELinux mode.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+Verify current service state.
+
+```bash
+systemctl status cups
+```
+
+Expected output:
+
+```text
+Active: active (running)
+```
+
+---
+
+# Identify Service Information
+
+Verify service enablement state.
+
+```bash
+systemctl is-enabled cups
+```
+
+Expected output:
+
+```text
+enabled
+```
+
+---
+
+Verify unit file location.
+
+```bash
+systemctl cat cups
+```
+
+Expected output:
+
+```text
+/usr/lib/systemd/system/cups.service
+```
+
+---
+
+Verify current service dependencies.
+
+```bash
+systemctl list-dependencies cups
+```
+
+---
+
+# Disable the Service
+
+Disable automatic startup.
+
+```bash
+sudo systemctl disable cups
+```
+
+Expected output:
+
+```text
+Removed
+```
+
+---
+
+Verify disablement state.
+
+```bash
+systemctl is-enabled cups
+```
+
+Expected output:
+
+```text
+disabled
+```
+
+---
+
+Verify the service can still start manually.
+
+```bash
+sudo systemctl start cups
+```
+
+---
+
+Verify service state.
+
+```bash
+systemctl status cups
+```
+
+Expected output:
+
+```text
+Active: active (running)
+```
+
+---
+
+# Mask the Service
+
+Stop the service.
+
+```bash
+sudo systemctl stop cups
+```
+
+---
+
+Mask the service completely.
+
+```bash
+sudo systemctl mask cups
+```
+
+Expected output:
+
+```text
+Created symlink
+```
+
+---
+
+Verify masked state.
+
+```bash
+systemctl status cups
+```
+
+Expected output:
+
+```text
+Loaded: masked
+```
+
+---
+
+Verify service cannot start.
+
+```bash
+sudo systemctl start cups
+```
+
+Expected output:
+
+```text
+Failed to start cups.service: Unit is masked.
+```
+
+---
+
+# Validate Masking Behavior
+
+Verify unit file symlink.
+
+```bash
+ls -l /etc/systemd/system/cups.service
+```
+
+Expected output:
+
+```text
+/dev/null
+```
+
+---
+
+Verify masked units.
+
+```bash
+systemctl list-unit-files --state=masked
+```
+
+Expected output:
+
+```text
+cups.service
+```
+
+---
+
+Verify service startup failure logs.
+
+```bash
+journalctl -u cups
+```
+
+Expected output:
+
+```text
+Unit is masked
+```
+
+---
+
+# Unmask and Restore Service
+
+Unmask the service.
+
+```bash
+sudo systemctl unmask cups
+```
+
+Expected output:
+
+```text
+Removed
+```
+
+---
+
+Enable the service again.
+
+```bash
+sudo systemctl enable cups
+```
+
+Expected output:
+
+```text
+Created symlink
+```
+
+---
+
+Start the service.
+
+```bash
+sudo systemctl start cups
+```
+
+---
+
+Verify restored service state.
+
+```bash
+systemctl status cups
+```
+
+Expected output:
+
+```text
+Active: active (running)
+```
+
+---
+
+# Monitoring Validation
+
+Monitor service state.
+
+```bash
+systemctl status cups
+```
+
+---
+
+Monitor service unit properties.
+
+```bash
+systemctl show cups
+```
+
+---
+
+Monitor failed services.
+
+```bash
+systemctl --failed
+```
+
+Expected output:
+
+```text
+0 loaded units listed
+```
+
+---
+
+Monitor active services.
+
+```bash
+systemctl list-units --type=service
+```
+
+---
+
+# Logging Validation
+
+Review service logs.
+
+```bash
+journalctl -u cups
+```
+
+---
+
+Review recent logs.
+
+```bash
+journalctl -u cups -n 20
+```
+
+---
+
+Monitor live service logs.
+
+```bash
+journalctl -fu cups
+```
+
+---
+
+Review systemd service events.
+
+```bash
+journalctl | grep cups
+```
+
+---
+
+# Troubleshooting
+
+Verify service masking state.
+
+```bash
+systemctl is-enabled cups
+```
+
+Expected output:
+
+```text
+masked
+```
+
+---
+
+Verify unit symlink.
+
+```bash
+ls -l /etc/systemd/system/cups.service
+```
+
+---
+
+Reload systemd configuration.
+
+```bash
+sudo systemctl daemon-reload
+```
+
+---
+
+Restart service after unmasking.
+
+```bash
+sudo systemctl restart cups
+```
+
+---
+
+Verify SELinux mode.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+# Persistence Validation
+
+Reboot the server.
+
+```bash
+sudo reboot
+```
+
+---
+
+Verify service persistence after reboot.
+
+```bash
+systemctl status cups
+```
+
+Expected output:
+
+```text
+enabled
+active (running)
+```
+
+---
+
+Verify masking removal persists.
+
+```bash
+systemctl is-enabled cups
+```
+
+Expected output:
+
+```text
+enabled
+```
+
+---
+
+# Security Validation
+
+Verify service permissions.
+
+```bash
+systemctl cat cups
+```
+
+---
+
+Verify masked symlink removal.
+
+```bash
+ls -l /etc/systemd/system/
+```
+
+Expected output:
+
+```text
+cups.service
+```
+
+---
+
+Verify SELinux remains enforcing.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+# Operational Recommendations
+
+- Use masking carefully on production systems
+- Document all service masking operations
+- Validate dependencies before masking services
+- Restrict unauthorized service modifications
+- Monitor failed service startups
+- Test masking workflows in lab environments
+- Maintain service recovery procedures
+- Validate service states after maintenance
+
+---
+
+# Operational Notes
+
+Masking a service prevents it from being started manually or automatically by linking the service unit to `/dev/null`. This provides stronger protection than simply disabling a service.
+
+During troubleshooting validate:
+
+- Service masking state
+- Unit symlink status
+- Service dependencies
+- Journal logs
+- Service enablement state
+- SELinux enforcement
+- Service recovery operations
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- Service masking operations function correctly
+- Masked services cannot start
+- Service recovery workflows operate successfully
+- Logging and monitoring function correctly
+- Service persistence works correctly
+- SELinux remains enforcing
+- Operational troubleshooting workflows function properly
+
+---
+
+![Screenshot](../screenshots/masking-services.png)
