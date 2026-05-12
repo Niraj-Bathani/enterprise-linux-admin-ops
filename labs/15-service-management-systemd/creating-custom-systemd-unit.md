@@ -1,46 +1,561 @@
 # Creating Custom systemd Unit
 
-## Objective
+## Overview
 
-In this lab you will practice creating custom systemd unit on a RHEL compatible virtual machine. The objective is to move beyond memorizing commands and learn how to plan the change, apply it safely, validate it, and explain the result as an administrator would in an operations handoff.
+This lab demonstrates how to create and manage a custom systemd service unit on RHEL 9.6 systems. The exercise covers creating custom service definitions, configuring service startup behavior, validating service management operations, and troubleshooting systemd unit issues.
 
-## Prerequisites
+The workflow follows enterprise Linux operational practices using systemd service management with SELinux enforcing and firewalld enabled.
 
-- A disposable RHEL 8, RHEL 9, Rocky, AlmaLinux, or CentOS Stream VM.
-- Console access or a snapshot before storage, firewall, boot, and identity changes.
-- A user with sudo privileges.
-- Network connectivity and package repositories for optional tools.
+---
 
-## Step By Step Commands
+# Objective
 
-1. Run `systemctl status sshd` and record the output in your lab notes.
-2. Run `systemctl enable --now firewalld` and record the output in your lab notes.
-3. Run `journalctl -u sshd -b` and record the output in your lab notes.
-4. Run `systemctl list-units --failed` and record the output in your lab notes.
-5. Run `systemctl cat sshd` and record the output in your lab notes.
+In this lab you will:
 
-Example command sequence:
+- Create a custom systemd service
+- Configure service unit files
+- Configure automatic startup behavior
+- Start and stop custom services
+- Validate service logging
+- Monitor service processes
+- Troubleshoot service failures
+- Verify persistence after reboot
+
+---
+
+# Environment Information
+
+| Hostname | Role | IP Address |
+|---|---|---|
+| rhel9-systemd01.prod.lab | systemd Management Server | 192.168.30.10 |
+
+Environment details:
+
+- Operating System: RHEL 9.6
+- Init System: systemd
+- SELinux: Enforcing
+- firewalld: Enabled
+- Service Type: Custom systemd Unit
+
+---
+
+# Initial Validation
+
+Verify hostname configuration.
 
 ```bash
-systemctl status sshd
-systemctl enable --now firewalld
-journalctl -u sshd -b
-systemctl list-units --failed
-systemctl cat sshd
+hostnamectl
 ```
 
-## Expected Output
+Expected output:
 
-Expected output varies by release and lab topology, but you should see successful exit codes and state that matches the intended change. For read-only commands, confirm that device names, service names, usernames, mount points, ports, or counters are present. For configuration commands, repeat the inspection command and look for the new persistent value rather than a temporary shell-only result.
+```text
+ Static hostname: rhel9-systemd01.prod.lab
+```
 
-## Validation
+---
 
-Validate from the local host and, when relevant, from a second client. Use `systemctl status`, `journalctl -b`, `ip route`, `ss -tulpen`, `findmnt`, or the specific command for the feature. Reboot validation is recommended for networking, storage, boot, cron, and service management labs. Record any unexpected output and explain whether it is harmless, a lab topology difference, or a real misconfiguration.
+Verify current init system.
 
-## Cleanup
+```bash
+ps -p 1
+```
 
-Undo only the changes you made. Remove temporary users, files, mounts, firewall rules, or test services after collecting text output for your notes. If the lab involved risky disk or boot operations, revert to the VM snapshot rather than trying to manually unwind every change.
+Expected output:
 
-## Operator Notes
+```text
+systemd
+```
 
-Treat Creating Custom systemd Unit as a controlled administrative change, not as a memory exercise. Read the command, state what object it changes, run it on a disposable lab host first, and record the before and after state. Enterprise Linux work is safest when every action can be explained later from logs, shell history, and a short ticket note. When your output differs from the examples, compare release versions, service names, SELinux mode, firewall zones, and whether NetworkManager or systemd is managing the component.
+---
+
+Verify SELinux mode.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+Verify current running services.
+
+```bash
+systemctl list-units --type=service
+```
+
+Expected output:
+
+```text
+loaded active running
+```
+
+---
+
+# Create Custom Service Script
+
+Create a custom script directory.
+
+```bash
+sudo mkdir -p /opt/custom-services
+```
+
+---
+
+Create the custom service script.
+
+```bash
+sudo vi /opt/custom-services/custom-monitor.sh
+```
+
+---
+
+Add the following content.
+
+```bash
+#!/bin/bash
+
+while true
+do
+    echo "$(date) : Custom monitoring service running" >> /var/log/custom-monitor.log
+    sleep 30
+done
+```
+
+---
+
+Set executable permissions.
+
+```bash
+sudo chmod +x /opt/custom-services/custom-monitor.sh
+```
+
+---
+
+Verify permissions.
+
+```bash
+ls -l /opt/custom-services/
+```
+
+Expected output:
+
+```text
+-rwxr-xr-x
+```
+
+---
+
+# Create systemd Unit File
+
+Create the custom systemd service unit.
+
+```bash
+sudo vi /etc/systemd/system/custom-monitor.service
+```
+
+---
+
+Add the following configuration.
+
+```ini
+[Unit]
+Description=Custom Monitoring Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/opt/custom-services/custom-monitor.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+---
+
+# Reload systemd Configuration
+
+Reload systemd daemon configuration.
+
+```bash
+sudo systemctl daemon-reload
+```
+
+---
+
+Verify service availability.
+
+```bash
+systemctl list-unit-files | grep custom-monitor
+```
+
+Expected output:
+
+```text
+custom-monitor.service
+```
+
+---
+
+# Start Custom Service
+
+Start the custom service.
+
+```bash
+sudo systemctl start custom-monitor.service
+```
+
+---
+
+Verify service status.
+
+```bash
+sudo systemctl status custom-monitor.service
+```
+
+Expected output:
+
+```text
+Active: active (running)
+```
+
+---
+
+Verify process execution.
+
+```bash
+ps -ef | grep custom-monitor
+```
+
+Expected output:
+
+```text
+custom-monitor.sh
+```
+
+---
+
+# Enable Service at Boot
+
+Enable the service for automatic startup.
+
+```bash
+sudo systemctl enable custom-monitor.service
+```
+
+Expected output:
+
+```text
+Created symlink
+```
+
+---
+
+Verify enablement state.
+
+```bash
+systemctl is-enabled custom-monitor.service
+```
+
+Expected output:
+
+```text
+enabled
+```
+
+---
+
+# Validate Service Logging
+
+Monitor the custom log file.
+
+```bash
+sudo tail -f /var/log/custom-monitor.log
+```
+
+Expected output:
+
+```text
+Custom monitoring service running
+```
+
+---
+
+Review service journal logs.
+
+```bash
+sudo journalctl -u custom-monitor.service
+```
+
+Expected output:
+
+```text
+Started Custom Monitoring Service
+```
+
+---
+
+# Monitoring Validation
+
+Monitor service state.
+
+```bash
+systemctl status custom-monitor.service
+```
+
+---
+
+Monitor service processes.
+
+```bash
+ps -ef | grep custom-monitor
+```
+
+---
+
+Monitor service resource usage.
+
+```bash
+systemctl show custom-monitor.service
+```
+
+---
+
+Monitor active systemd services.
+
+```bash
+systemctl list-units --type=service
+```
+
+---
+
+# Logging Validation
+
+Review service logs.
+
+```bash
+journalctl -u custom-monitor.service
+```
+
+---
+
+Review recent log activity.
+
+```bash
+journalctl -u custom-monitor.service -n 20
+```
+
+---
+
+Monitor live journal entries.
+
+```bash
+journalctl -fu custom-monitor.service
+```
+
+---
+
+Verify custom application logs.
+
+```bash
+tail -f /var/log/custom-monitor.log
+```
+
+---
+
+# Troubleshooting
+
+Verify service configuration syntax.
+
+```bash
+systemd-analyze verify /etc/systemd/system/custom-monitor.service
+```
+
+---
+
+Restart the custom service.
+
+```bash
+sudo systemctl restart custom-monitor.service
+```
+
+---
+
+Verify service state after restart.
+
+```bash
+systemctl status custom-monitor.service
+```
+
+Expected output:
+
+```text
+active (running)
+```
+
+---
+
+If the service fails verify executable permissions.
+
+```bash
+ls -l /opt/custom-services/custom-monitor.sh
+```
+
+---
+
+Verify SELinux mode.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+Reload systemd configuration after modifications.
+
+```bash
+sudo systemctl daemon-reload
+```
+
+---
+
+# Persistence Validation
+
+Reboot the server.
+
+```bash
+sudo reboot
+```
+
+---
+
+Verify service startup after reboot.
+
+```bash
+systemctl status custom-monitor.service
+```
+
+Expected output:
+
+```text
+enabled
+active (running)
+```
+
+---
+
+Verify log generation continues.
+
+```bash
+tail /var/log/custom-monitor.log
+```
+
+Expected output:
+
+```text
+Custom monitoring service running
+```
+
+---
+
+# Security Validation
+
+Verify service file permissions.
+
+```bash
+ls -l /etc/systemd/system/custom-monitor.service
+```
+
+Expected output:
+
+```text
+-rw-r--r--
+```
+
+---
+
+Verify script ownership.
+
+```bash
+ls -l /opt/custom-services/custom-monitor.sh
+```
+
+Expected output:
+
+```text
+root root
+```
+
+---
+
+Verify SELinux remains enforcing.
+
+```bash
+getenforce
+```
+
+Expected output:
+
+```text
+Enforcing
+```
+
+---
+
+# Operational Recommendations
+
+- Store custom scripts in controlled directories
+- Use systemd restart policies carefully
+- Centralize service logging
+- Monitor service resource usage
+- Validate service configurations before deployment
+- Restrict unauthorized service modifications
+- Maintain backup copies of unit files
+- Test service persistence after maintenance
+
+---
+
+# Operational Notes
+
+Custom systemd units provide centralized service management for enterprise workloads. Unit files allow administrators to manage startup behavior, restart policies, dependencies, and logging operations consistently.
+
+During troubleshooting validate:
+
+- Unit file syntax
+- Script permissions
+- SELinux enforcement state
+- Service logs
+- Process state
+- Restart policies
+- Service dependencies
+
+---
+
+# Expected Outcome
+
+After completing this lab:
+
+- A custom systemd service is operational
+- The service starts automatically at boot
+- Logging functions correctly
+- Service monitoring operates successfully
+- Troubleshooting workflows function correctly
+- SELinux remains enforcing
+- Service persistence is verified
+
+---
+
+![Screenshot](../screenshots/creating-custom-systemd-unit.png)
